@@ -1,171 +1,95 @@
 import logging
+import math
+import numpy as np
+from BluetoothService import ScanDelegate
+from bluepy.btle import Scanner
 
 
-class Beacon:
-
-    def __init__(self, serial_number, location):
-        self._serial_number = serial_number
-        self._rssi_map = {}
-        self._location = np.array(location)  # assumes 2 or 3 length
-
-    def add_reading(self, point, rssi_reading):
-        self._rssi_map[point] = rssi_reading
-
-    def get_reading(self, point):
-        return self._rssi_map[point]
-
-    @property
-    def get_rssi_map(self):
-        return self._rssi_map
-
-    @property
-    def get_locstion(self):
-        return self._location
+def load_measurement(filename:str):
+    with open(filename,"r") as file:
+        entry = file.readline()
+        measurement_pairs = [measurement.split(",") for measurement in entry]
+        return dict(measurement_pairs)
 
 
-class ReferencePoint:
+def load_map(filename:str):
+    beacons = {}
+    positions = {}
+    points = []
+    with open(filename,"r") as file:
+        for entry in file.readlines():
+            beacon_address,position, measurements = entry.strip("\n").strip("\t").split("&")
+            measurement_pairs = [measurement.split(",") for measurement in measurements.split(";")]
+            if not beacon_address in beacons.keys():
+                beacons[beacon_address] = []
+            beacons[beacon_address].append(measurement_pairs)
 
-    def __init__(self, location):
-        self._rssi_map = {}
-        self._location = np.array(location)  # assumes 2 or 3 length
-
-    def add_reading(self, beacon_id, reading):
-        self._rssi_map[beacon_id] = reading
-
-    def get_reading(self, beacon_id):
-        if beacon_id in self._rssi_map.keys():
-            return self._rssi_map[beacon_id]
-        else:
-            logging.error("A beacon wasnt found with that id")
-
-    @property
-    def get_rssi_map(self):
-        return self._rssi_map
-
-    @property
-    def get_location(self):
-        return self._location
+            positions[beacon_address] = np.array([float(coord) for coord in position.split(",")])
+    return beacons, positions
 
 
-class Map:
-    def __init__(self):
-        self._beacons = {}
-        self._reference_points = {}
 
-    def add_beacon(self, uid, location):
-        if uid in self._beacons.keys():
-            logging.warning(
-                "a beacon already exists with this id overwriting the beacon information")
-        self._beacons[uid] = Beacon(uid, location)
+def knn(beacons,positions, observed_measurement, k=3):
 
-    def add_measurement(self, beacon_id, position, reading):
-        if beacon_id in self._beacons.keys():
-            self._beacons[beacon_id].add_reading(position, reading)
-            self._reference_points[position].add_reading(beacon_id, reading)
-        else:
-            logging.error("A beacon wasnt found with that id")
+    distances = []
 
-    @property
-    def reference_points(self):
-        return self._reference_points
+    for beacon,training_measurements in beacons.items():
+        distance = math.sqrt(sum([(observed_measurement[address] -  training_measurements[address])**2 for address in training_measurements.keys()]) / len(beacons))
+        distances.append((beacon,distance))
+    
+    sorted_distances = sorted(beacons,key=lambda x: x[1], reverse=True)
 
 
-def binary_set(A):
-    '''
-    get the binary set of A
+    first_k = sorted_distances[:k]
+    position = np.zeros(2)
 
-            Parameters:
-                    A (list) list of tuples of beacon_id to rssi values
-            Returns:
-                the set of beacon tuples 
-    '''
-    new_set = {}
-    set_length = len(A)
-    for i in range(set_length):
-        for j in range(i + 1, set_length):
-            new_set.add((A[i][0], A[j][0]))
-    return new_set
+    distance_sum = sum([distance for _,distance in first_k])
+    for closest_beacon,distance in first_k:
+        position += (distance/distance_sum) * positions[closest_beacon]
+
+    print(f"position coordinate: {position}")
+    return position
 
 
-def reversions(A, B):
-    '''
-    get the number of discordant pairs
+def get_measurement(beacons):
+    delegate= ScanDelegate()
+    scanner = Scanner().withDelegate(delegate)
+    
+    for i in range(10):
+        devices = scanner.scan(0.1)
 
-            Parameters:
-                    A (list) list of tuples of beacon_ids
-                    B (list) list of tuples of beacon_ids
-    '''
-    revs = 0
-
-    for _, avg_rssi in A:
-        if not (avg_rssi in B):
-            revs += 1
-
-    return revs
+    measurement_general = dict(filter(lambda val: val[0] in beacons))
+    measurement_averaged = d2 = {k: math.mean(v) for k, v in measurement_general.items()}
+    return measurement_averaged
 
 
-def predict_position(taus, positions):
-    '''
-    predicts position of a point using the weighted positions 
+def get_measurement_covariance(old,new):
+    signal_variance = 1
+    length_scale = 1
 
-            Parameters:
-                    taus (list) the weights for each positions
-                    positions (list) the cooridinate positions of the beacons
-    '''
-    tau_sum = sum(taus)
-    average_position = sum(
-        [constant * position/tau_sum for constant, position in zip(taus, positions)])
-    return average_position
-
-
-def calculate_tau(measured_rssi_readings, reference_point):
-    '''
-    calculate tau for the measured point relative to  reference point
-
-            Parameters:
-                    measured_rssi_readings (dict) the map of beacon ids to rssi values
-                    reference_point (Point) the reference point we are comparing with
-    '''
-    measured_point_readings = len(measured_rssi_readings.keys())
-    measured_rssi_readings = sorted(
-        measured_rssi_readings.items(), key=lambda item: item[1], reverse=True)
-    point_rssi_readings = sorted(
-        reference_point.rssi_map.items(), key=lambda item: item[1], reverse=True)
-
-    measured_b_set = binary_set(measured_rssi_readings)
-    point_b_set = binary_set(point_rssi_readings)
-    revs = reversions(measured_b_set, point_b_set)
-
-    tau = 1 - 2 * revs / (len(measured_point_readings) *
-                          (len(measured_point_readings) - 1))
-    return tau
-
-
+    covariance = {beacon:signal_variance**2 * np.exp((-1/(2*np.exp2(length_scale)))*np.exp2(np.absolute(old[beacon]-new[beacon]))) for beacon in old.keys()}
+    return covariance
+    
 def main():
     logging.basicConfig(filename='main.log',
                         level=logging.ERROR)
 
-    reference_points = 4
-    number_beacons = 5
     k = 3
-    # todo build map
-    area_map = Map()
-    # todo readings for point must be obtained
-    measured_rssi_readings = {}
-    reference_points = area_map.reference_points
-    tau_map = []
-    for ref_point in reference_points:
-        tau_map.append((ref_point.location, calculate_tau(
-            measured_rssi_readings, ref_point)))
 
-    # larger tau suggests closer
-    sorted_taus = sorted(tau_map, key=lambda item: item[1], reverse=True)
+    beacons,positions = load_map("testfile.txt")
 
-    # find k nearest reference points
-    nearest_points = sorted_taus[:k]
-    # position is calculated using average distance between nearest reference points based on tau values
-    position = predict_position(*nearest_points)
+    current_measurement = get_measurement(beacons.keys())
+    current_position = knn(beacons,positions, current_measurement)
 
+    while True:
+        #assume .5 meter move
+        predicted_position = np.array([np.random.normal(loc=value,scale=0.5,size=1) for value in current_position])
+
+        measurement = get_measurement(beacons.keys())
+        k_means_position = knn(beacons,positions,measurement)
+        signal_variance = 1
+        length_scale = 1
+        covariance = signal_variance**2 * np.exp((-1/(2*np.exp2(length_scale)))*np.exp2(np.absolute(k_means_position-current_position)))
 
 if __name__ == "__main__":
     main()
