@@ -1,1 +1,0 @@
-source geolocation/bin/activate

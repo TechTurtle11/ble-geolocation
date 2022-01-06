@@ -6,10 +6,7 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 fi
 
+#!/bin/bash
+apt-get install python3 python3-dev bluez
 
-apt-get install python3 python3-dev
-
-
-python3 -m venv geolocation
-source geolocation/bin/activate
 pip3 install -r requirements.txt

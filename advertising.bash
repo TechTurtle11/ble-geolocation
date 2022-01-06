@@ -1,3 +1,5 @@
+#!/bin/bash
+
 #Run as root reference bluetooth core specification for more details vol 4 ,7.8.5
 #https://stackoverflow.com/questions/21124993/is-there-a-way-to-increase-ble-advertisement-frequency-in-bluez
 

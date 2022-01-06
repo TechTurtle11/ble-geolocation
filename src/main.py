@@ -1,15 +1,9 @@
 import logging
 import math
 import numpy as np
-from BluetoothService import ScanDelegate
+import measurement as meas
 from bluepy.btle import Scanner
 
-
-def load_measurement(filename:str):
-    with open(filename,"r") as file:
-        entry = file.readline()
-        measurement_pairs = [measurement.split(",") for measurement in entry]
-        return dict(measurement_pairs)
 
 
 def load_map(filename:str):
@@ -51,17 +45,6 @@ def knn(beacons,positions, observed_measurement, k=3):
     return position
 
 
-def get_measurement(beacons):
-    delegate= ScanDelegate()
-    scanner = Scanner().withDelegate(delegate)
-    
-    for i in range(10):
-        devices = scanner.scan(0.1)
-
-    measurement_general = dict(filter(lambda val: val[0] in beacons))
-    measurement_averaged = d2 = {k: math.mean(v) for k, v in measurement_general.items()}
-    return measurement_averaged
-
 
 def get_measurement_covariance(old,new):
     signal_variance = 1
@@ -78,14 +61,14 @@ def main():
 
     beacons,positions = load_map("testfile.txt")
 
-    current_measurement = get_measurement(beacons.keys())
+    current_measurement = meas.get_measurement(beacons.keys())
     current_position = knn(beacons,positions, current_measurement)
 
     while True:
         #assume .5 meter move
         predicted_position = np.array([np.random.normal(loc=value,scale=0.5,size=1) for value in current_position])
 
-        measurement = get_measurement(beacons.keys())
+        measurement = meas.get_measurement(beacons.keys())
         k_means_position = knn(beacons,positions,measurement)
         signal_variance = 1
         length_scale = 1
