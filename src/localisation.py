@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import numpy as np
 import gpflow
+from map import Map
 
 from measurement import get_live_measurement, load_training_data
 
@@ -25,26 +26,31 @@ def create_beacon_survey_maps(training_data: dict):
     return maps
 
 
-def calculate_cell_probabilities(measurements, beacon_survey_maps):
-    cell_probabilties = np.zeros((20, 20))
+def calculate_cell_probabilities(measurements, beacon_survey_maps, area_map):
     standard_deviation = 1
+    max_prob = 0
+    max_cell = None
 
-    for i in range(10):
-        for j in range(10):
-            position = np.array([i, j])
-            distance = 0
-            n = len(measurements)
-            for beacon, measurement in measurements.items():
+    cells = area_map.get_cells()
+    for cell in cells:
+        distance = 0
+        n = len(measurements)
+        position = cell.center
+        for beacon, measurement in measurements.items():
+            cell_mean, cell_variance = beacon_survey_maps[beacon].predict_f(position)
 
-                cell_mean, cell_variance = beacon_survey_maps[beacon].predict_f(position)
-                distance += (measurement -
-                             beacon_survey_maps[beacon].predict_f(position))**2
-            distance = distance/n
+            distance += (measurement -cell_mean)**2
+        distance = distance/n
 
-            p = np.exp(-np.exp2(distance)/(2*np.exp2(standard_deviation)))
-            cell_probabilties[i, j] = p
+        p = np.exp(-np.exp2(distance)/(2*np.exp2(standard_deviation)))
+        cell.probability = p
 
-    return cell_probabilties
+        if p > max_prob:
+            max_prob = p
+            max_cell = cell
+
+
+    return cells, max_cell
 
 
 def main():
@@ -54,9 +60,14 @@ def main():
 
     survey_maps = create_beacon_survey_maps(training_data)
 
+    area_map = Map(initial_dimensions=(20,20))
+
+
     while True:
         current_measurement = get_live_measurement(training_data.keys())
 
-        cell_probabilities = calculate_cell_probabilities(
-            current_measurement, survey_maps)
-        most_likely_cell = np.argmax(cell_probabilities)
+        cells, most_likely_cell = calculate_cell_probabilities(
+            current_measurement, survey_maps, area_map)
+
+
+        print(f"Most Likely Cell: Center:{most_likely_cell.center} Prob: {most_likely_cell.probability}")
