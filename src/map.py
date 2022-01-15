@@ -27,8 +27,11 @@ class Cell():
         return self._probability
 
     @probability.setter
-    def set_probability(self, prob):
+    def probability(self, prob):
         self._probability = prob
+
+    def isNeighbor(self,cell):
+        return np.linalg.norm(cell.center - self._center) <= np.sqrt(2*self._cell_length)
 
 
 

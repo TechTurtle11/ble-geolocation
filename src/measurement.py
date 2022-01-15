@@ -1,15 +1,17 @@
 from os import path
 from bluepy.btle import Scanner, DefaultDelegate
+from matplotlib.pyplot import axis
 import numpy as np
 import math
 import logging
 from pathlib import Path
 
-logging.basicConfig(filename='logs/measurement.log', level=logging.ERROR)
+logging.basicConfig(filename='logs/measurement.log', level=logging.DEBUG)
 
 
 BEACON_WINDOW = 1 #Seconds
-BEACON_SAMPLES_PER_WINDOW = 10 
+BEACON_SAMPLES_PER_WINDOW = 10
+BEACON_MAC_ADDRESSES = ['e4:5f:01:63:71:64','e4:5f:01:63:71:64']
 
 class ScanDelegate(DefaultDelegate):
 
@@ -26,21 +28,21 @@ class ScanDelegate(DefaultDelegate):
 
         device_entries = self.entries.get(dev.addr)
         if device_entries is None:
-            self.entries[dev.addr] = np.array([dev.rssi])
+            self.entries[dev.addr] = [dev.rssi]
         else:
-            np.append(self.entries[dev.addr],[dev.rssi])
+            self.entries[dev.addr].append(dev.rssi)
 
 
 
 
-def get_live_measurement(beacons):
+def get_live_measurement(training_data):
     delegate= ScanDelegate()
     scanner = Scanner().withDelegate(delegate)
     
     for i in range(BEACON_SAMPLES_PER_WINDOW):
         devices = scanner.scan(BEACON_WINDOW/BEACON_SAMPLES_PER_WINDOW)
 
-    measurement_general = dict(filter(lambda val: val[0] in beacons))
+    measurement_general = dict(filter(lambda val: val[0] in training_data,delegate.entries.items()))
     measurement_averaged = {k: np.mean(v) for k, v in measurement_general.items()}
     return measurement_averaged
     
@@ -52,7 +54,9 @@ def get_training_measurement():
     for i in range(BEACON_SAMPLES_PER_WINDOW):
         devices = scanner.scan(BEACON_WINDOW/BEACON_SAMPLES_PER_WINDOW)
 
-    measurement_general = dict(filter(lambda val: len(val[1]) == BEACON_SAMPLES_PER_WINDOW))
+    print(delegate.entries)
+
+    measurement_general = {address:readings for address,readings in delegate.entries.items() if len(readings) > (2/3)*BEACON_SAMPLES_PER_WINDOW and address in BEACON_MAC_ADDRESSES}
     measurement_averaged = {k: np.mean(v) for k, v in measurement_general.items()}
     return measurement_averaged
 
@@ -74,27 +78,23 @@ def load_training_data(filepath: Path):
     """
 
 
-    beacons = {} # dictionary with a numpy array of training data for each beacon
+    training_data = {} # dictionary with a numpy array of training data for each beacon
     with open(filepath,"r") as file:
         for entry in file.readlines():
             raw_position, measurements = entry.strip("\n").strip("\t").split("&")
             measurement_pairs = [measurement.split(",") for measurement in measurements.split(";")]
 
-            position =  np.array([float(coord) for coord in position.split(",")])
+            position =  np.array([float(coord) for coord in raw_position.split(",")])
 
-            for address, rssi in measurement_pairs:
-                if not address in beacons.keys():
-                    beacons[address] = np.array([])
-                np.append(beacons[address],np.array([rssi,position]))
+            for beacon, rssi in measurement_pairs:
+                row = np.array([float(rssi),*position])
+                if not beacon in training_data.keys():
+                    training_data[beacon] = np.array([row])
+                else:
+                    training_data[beacon] = np.append(training_data[beacon],[row],axis=0)
 
-    return beacons
+    return training_data
 
-
-def load_measurement(filepath:Path):
-    with open(filepath,"r") as file:
-        entry = file.readline()
-        measurement_pairs = [measurement.split(",") for measurement in entry.split(";")]
-        return dict(measurement_pairs)
 
 
 def write_training_data_to_file(training_data: dict, filepath: Path,mode= "w"):
@@ -110,22 +110,24 @@ def write_training_data_to_file(training_data: dict, filepath: Path,mode= "w"):
 
 def collect_training_data():
 
-
     training_data = {}
 
     while True:
-        x = input("Enter current x coordinate")
-        y = input("Enter current y coordinate")
+        x = input("Enter current x coordinate: ")
+        y = input("Enter current y coordinate: ")
         position = np.array([x,y])
-        print("Computing rssi vector for {position} :")
+        print(f"Computing rssi vector for {position} :")
         measurement = get_training_measurement()
+        print(f"Measurement was {measurement} :")
 
         for beacon,rssi  in measurement.items():
-            if not beacon in training_data.keys():
-                training_data[beacon] = np.array([])
-                np.append(training_data[beacon],np.array([rssi,position]))
 
-        loop_continue = input("Type stop if you have finished collecting training data")
+            if not beacon in training_data.keys():
+                training_data[beacon] = []
+            training_data[beacon].append([position,rssi])
+
+
+        loop_continue = input("Type stop if you have finished collecting training data: ")
         if "stop" in loop_continue.lower():
             break
 
@@ -135,10 +137,10 @@ def collect_training_data():
 
 def main():
 
-
     data = collect_training_data()
 
     training_data_filepath = Path("data/test_training.txt")
+    print(data)
     write_training_data_to_file(data,training_data_filepath)
 
 
