@@ -6,6 +6,9 @@ import gpflow
 from map import Map
 from enum import Enum
 import tensorflow as tf
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel
+
 
 from measurement import get_live_measurement, load_training_data
 
@@ -20,21 +23,17 @@ class Prior(Enum):
 def create_beacon_survey_maps(training_data: dict):
     maps = {}
     for beacon, observations in training_data.items():
-        Y = tf.convert_to_tensor(observations.T[0])
-        X = tf.convert_to_tensor(observations.T[1:].T)
-        print(Y)
-        print(X)
-        k = gpflow.kernels.SquaredExponential(lengthscales=[1,1])
-        m = gpflow.models.GPR(data=(X,Y), kernel=k, mean_function=None)
-        opt = gpflow.optimizers.Scipy()
-        opt_logs = opt.minimize(
-            m.training_loss, m.trainable_variables, options=dict(maxiter=100))
-        print(opt_logs)
-        gpflow.utilities.print_summary(m)
-        maps[beacon] = m
+        Y = observations.T[0]
+        X = observations.T[1:].T
+
+        kernel = ConstantKernel() + RBF()
+        gpr = GaussianProcessRegressor(kernel=kernel, random_state=0,normalize_y=True).fit(X, Y)
+
+        print(gpr.predict(np.array([[.5,0.5]])))
 
 
-        print(m.predict_y(Xnew=np.array([[0.5,0.5]])))
+        maps[beacon] = gpr
+
 
     return maps
 
@@ -49,23 +48,24 @@ def calculate_cell_probabilities(measurements, beacon_survey_maps, area_map,prev
         distance = 0.
         n = len(measurements)
 
-        if prior is Prior.LOCAL and previous_cell.isNeighbor(cell):
-            p = 1/9
-        elif prior is Prior.UNIFORM:
+        if prior is Prior.LOCAL and not previous_cell is None and previous_cell.isNeighbor(cell):
+            p= 1/9
+        elif prior is Prior.LOCAL and not previous_cell is None:
+            p = 1/len(cells)
+        else:
             p = 1/len(cells)
 
 
         if n > 0:
             position = cell.center
             for beacon, map in beacon_survey_maps.items():
-                cell_mean, cell_variance = map.predict_y(position)
-                print(cell_mean)
+                cell_mean = map.predict([position])
                 distance += (measurements[beacon] -cell_mean)**2
-            distance = distance/n
+            distance = np.sqrt(distance/n)
+            
 
-            p *= np.exp(-np.exp2(distance)/(2*np.exp2(standard_deviation)))
-        
-
+            p += np.exp(-np.exp2(distance)/(2*np.exp2(standard_deviation)))
+        print(f"cell_position: {position}  distance: {distance} p: {p}")
         cell.probability = p
         
 
@@ -79,13 +79,13 @@ def calculate_cell_probabilities(measurements, beacon_survey_maps, area_map,prev
 
 def main():
 
-    training_data_filepath = Path("data/test_training.txt")
+    training_data_filepath = Path("data/cl_indoor_training.txt")
     training_data = load_training_data(training_data_filepath)
 
-    print(training_data)
     survey_maps = create_beacon_survey_maps(training_data)
 
-    area_map = Map(initial_dimensions=(20,20))
+    area_map = Map(initial_dimensions=[10,10])
+    previous_cell = None
 
 
     while True:
@@ -93,11 +93,12 @@ def main():
         print(f"Current measurement is: {current_measurement}")
 
         cells, most_likely_cell = calculate_cell_probabilities(
-            current_measurement, survey_maps, area_map)
+            current_measurement, survey_maps, area_map,previous_cell=previous_cell, prior=Prior.LOCAL)
 
 
         print(f"Most Likely Cell: Center:{most_likely_cell.center} Prob: {most_likely_cell.probability}")
 
+        previous_cell = most_likely_cell
 
 if __name__ == "__main__":
     main()

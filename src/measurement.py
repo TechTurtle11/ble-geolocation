@@ -11,7 +11,7 @@ logging.basicConfig(filename='logs/measurement.log', level=logging.DEBUG)
 
 BEACON_WINDOW = 1 #Seconds
 BEACON_SAMPLES_PER_WINDOW = 10
-BEACON_MAC_ADDRESSES = ['e4:5f:01:63:71:64','e4:5f:01:63:71:64']
+BEACON_MAC_ADDRESSES = ['e4:5f:01:63:71:64','e4:5f:01:63:71:e5','e4:5f:01:63:71:55','e4:5f:01:63:71:b5','e4:5f:01:63:71:a3']
 
 class ScanDelegate(DefaultDelegate):
 
@@ -42,7 +42,7 @@ def get_live_measurement(training_data):
     for i in range(BEACON_SAMPLES_PER_WINDOW):
         devices = scanner.scan(BEACON_WINDOW/BEACON_SAMPLES_PER_WINDOW)
 
-    measurement_general = dict(filter(lambda val: val[0] in training_data,delegate.entries.items()))
+    measurement_general = {address:readings for address,readings in delegate.entries.items() if address in BEACON_MAC_ADDRESSES}
     measurement_averaged = {k: np.mean(v) for k, v in measurement_general.items()}
     return measurement_averaged
     
@@ -56,7 +56,7 @@ def get_training_measurement():
 
     print(delegate.entries)
 
-    measurement_general = {address:readings for address,readings in delegate.entries.items() if len(readings) > (2/3)*BEACON_SAMPLES_PER_WINDOW and address in BEACON_MAC_ADDRESSES}
+    measurement_general = {address:readings for address,readings in delegate.entries.items() if address in BEACON_MAC_ADDRESSES}
     measurement_averaged = {k: np.mean(v) for k, v in measurement_general.items()}
     return measurement_averaged
 
@@ -111,6 +111,7 @@ def write_training_data_to_file(training_data: dict, filepath: Path,mode= "w"):
 def collect_training_data():
 
     training_data = {}
+    get_training_measurement()
 
     while True:
         x = input("Enter current x coordinate: ")
@@ -139,7 +140,7 @@ def main():
 
     data = collect_training_data()
 
-    training_data_filepath = Path("data/test_training.txt")
+    training_data_filepath = Path("data/cl_indoor_training.txt")
     print(data)
     write_training_data_to_file(data,training_data_filepath)
 

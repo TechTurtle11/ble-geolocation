@@ -49,7 +49,7 @@ class Map():
         if not initial_dimensions is None:
             for i in np.arange(start=starting_point[0],stop=initial_dimensions[0], step=self._cell_size):
                 for j in np.arange(start=starting_point[1],stop = initial_dimensions[1], step =self._cell_size):
-                    center = np.array(i,j)
+                    center = np.array([i,j])
                     self._cells.append(Cell(center,self._cell_size))
     
 
