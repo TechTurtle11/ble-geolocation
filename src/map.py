@@ -10,6 +10,7 @@ class Cell():
         self._center = center
         self._cell_length = cell_length
         self._probability = 0
+        self._covariance = 0
 
 
     @property
@@ -30,6 +31,14 @@ class Cell():
     def probability(self, prob):
         self._probability = prob
 
+    @property
+    def covariance(self):
+        return self._covariance
+
+    @covariance.setter
+    def covariance(self, cov):
+        self._covariance = cov
+
     def isNeighbor(self,cell):
         return np.linalg.norm(cell.center - self._center) <= np.sqrt(2*self._cell_length)
 
@@ -39,16 +48,16 @@ class Cell():
 class Map():
 
 
-    def __init__(self,starting_point = None, initial_dimensions=None, cell_size = 1) -> None:
+    def __init__(self,starting_point = None, ending_point=None, cell_size = 1) -> None:
         self._cells = []
         self._cell_size = cell_size
 
         if starting_point is None:
             starting_point = (0.5,0.5)
 
-        if not initial_dimensions is None:
-            for i in np.arange(start=starting_point[0],stop=initial_dimensions[0], step=self._cell_size):
-                for j in np.arange(start=starting_point[1],stop = initial_dimensions[1], step =self._cell_size):
+        if ending_point is not None:
+            for i in np.arange(start=starting_point[0],stop=ending_point[0], step=self._cell_size):
+                for j in np.arange(start=starting_point[1],stop = ending_point[1], step =self._cell_size):
                     center = np.array([i,j])
                     self._cells.append(Cell(center,self._cell_size))
     

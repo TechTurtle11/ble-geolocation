@@ -15,10 +15,9 @@ BEACON_MAC_ADDRESSES = ['e4:5f:01:63:71:64','e4:5f:01:63:71:e5','e4:5f:01:63:71:
 
 class ScanDelegate(DefaultDelegate):
 
-    entries={}
     def __init__(self):
         DefaultDelegate.__init__(self)
-
+        self.entries={}
 
     def handleDiscovery(self, dev, isNewDev, isNewData):
         if isNewDev:
@@ -35,16 +34,27 @@ class ScanDelegate(DefaultDelegate):
 
 
 
-def get_live_measurement(training_data):
+def get_live_measurement(training_data, previous_measurement = None):
     delegate= ScanDelegate()
     scanner = Scanner().withDelegate(delegate)
     
     for i in range(BEACON_SAMPLES_PER_WINDOW):
         devices = scanner.scan(BEACON_WINDOW/BEACON_SAMPLES_PER_WINDOW)
 
-    measurement_general = {address:readings for address,readings in delegate.entries.items() if address in BEACON_MAC_ADDRESSES}
-    measurement_averaged = {k: np.mean(v) for k, v in measurement_general.items()}
-    return measurement_averaged
+    print(delegate.entries)
+
+    final_measurement = {address:(np.mean(readings),0) for address,readings in delegate.entries.items() if address in BEACON_MAC_ADDRESSES}
+
+    if previous_measurement is not None:
+        for beacon,reading in final_measurement.keys():
+            #kalman filter on rssi values
+            rssi = reading[0]
+            previous_rssi, previous_covariance = previous_measurement[beacon]
+            filtered_rssi, next_covariance = kalman_block(previous_rssi,previous_covariance,rssi, A=1, H=1, Q=1.6, R=6)
+            final_measurement[beacon] = (filtered_rssi,next_covariance)
+
+        
+    return final_measurement
     
 
 def get_training_measurement():
@@ -54,7 +64,6 @@ def get_training_measurement():
     for i in range(BEACON_SAMPLES_PER_WINDOW):
         devices = scanner.scan(BEACON_WINDOW/BEACON_SAMPLES_PER_WINDOW)
 
-    print(delegate.entries)
 
     measurement_general = {address:readings for address,readings in delegate.entries.items() if address in BEACON_MAC_ADDRESSES}
     measurement_averaged = {k: np.mean(v) for k, v in measurement_general.items()}
@@ -111,7 +120,6 @@ def write_training_data_to_file(training_data: dict, filepath: Path,mode= "w"):
 def collect_training_data():
 
     training_data = {}
-    get_training_measurement()
 
     while True:
         x = input("Enter current x coordinate: ")
@@ -126,7 +134,7 @@ def collect_training_data():
             if not beacon in training_data.keys():
                 training_data[beacon] = []
             training_data[beacon].append([position,rssi])
-
+            
 
         loop_continue = input("Type stop if you have finished collecting training data: ")
         if "stop" in loop_continue.lower():
@@ -135,12 +143,40 @@ def collect_training_data():
     return training_data
 
 
+def kalman_block(previous_mean, previous_var, new_observation, A, H, Q, R):
+    """
+    Prediction and update in Kalman filter
+
+    Parameters:
+    previous_mean: previous mean state
+    previous_var : previous variance state
+    new_observation: current observation
+    A: The transition constant
+    H: measurement constant
+    Q: The covariance constant
+    R: measurement covariance constant
+
+    Returns:
+    new_mean: mean state prediction
+    new_var: variance state prediction
+    """
+
+    # https://arxiv.org/abs/1204.0375v1 for reference
+
+    x_mean = A * previous_mean + np.random.normal(0, Q, 1)
+    P_mean = A * previous_var * A + Q
+
+    K = P_mean * H * (1 / (H * P_mean * H + R))
+    new_mean = x_mean + K * (new_observation - H * x_mean)
+    new_var = (1 - K * H) * P_mean
+
+    return new_mean, new_var
 
 def main():
 
     data = collect_training_data()
 
-    training_data_filepath = Path("data/cl_indoor_training.txt")
+    training_data_filepath = Path("data/intel_indoor_training.txt")
     print(data)
     write_training_data_to_file(data,training_data_filepath)
 
