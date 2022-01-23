@@ -50,6 +50,7 @@ class Map():
 
     def __init__(self,starting_point = None, ending_point=None, cell_size = 1) -> None:
         self._cells = []
+        self._dimensions = (starting_point,ending_point)
         self._cell_size = cell_size
 
         if starting_point is None:
@@ -57,7 +58,7 @@ class Map():
 
         if ending_point is not None:
             for i in np.arange(start=starting_point[0],stop=ending_point[0], step=self._cell_size):
-                for j in np.arange(start=starting_point[1],stop = ending_point[1], step =self._cell_size):
+                for j in np.arange(start=ending_point[1],stop = starting_point[1], step =-self._cell_size):
                     center = np.array([i,j])
                     self._cells.append(Cell(center,self._cell_size))
     
@@ -68,7 +69,13 @@ class Map():
             self._cells.append(cell)
 
     @property
+    def get_dimensions(self):
+        return self._dimensions
+
+    @property
     def get_cells(self):
         return self._cells
-
+    @property
+    def get_cell_size(self):
+        return self._cell_size
 

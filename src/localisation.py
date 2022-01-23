@@ -1,41 +1,29 @@
+from ast import While
 import logging
 from pathlib import Path
 import numpy as np
+from beacon import Beacon
 from map import Map
 from enum import Enum
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel
+from constants import Prior, MapAttribute,PROPAGATION_CONSTANT
 
 
 from measurement import get_live_measurement, load_training_data
+from plotting import plot_beacon_map_rssi, plot_beacon_map_covariance, plot_map_attribute
 
 
 logging.basicConfig(filename='logs/localisation.log', level=logging.ERROR)
 
 
-class Prior(Enum):
-    UNIFORM = 1
-    LOCAL = 2
-
-
 def create_beacon_survey_maps(training_data: dict):
     maps = {}
     for beacon, observations in training_data.items():
-        Y = observations.T[0]
-        X = observations.T[1:].T
-
-        kernel = RBF()
-        gpr = GaussianProcessRegressor(
-            kernel=kernel, random_state=0, normalize_y=True).fit(X, Y)
-
-        print(f"{beacon} {gpr.predict(np.array([[0,0]]))}")
-
-        maps[beacon] = gpr
+        maps[beacon] = Beacon(beacon,observations)
 
     return maps
 
 
-def calculate_cell_probabilities(measurements, beacon_survey_maps, area_map, previous_cell=None, prior=Prior.UNIFORM):
+def calculate_cell_probabilities(measurements, beacons, area_map, previous_cell=None, prior=Prior.UNIFORM):
     standard_deviation = 1
     max_cell_prob = (None, 0)  # cell, probability
 
@@ -51,11 +39,24 @@ def calculate_cell_probabilities(measurements, beacon_survey_maps, area_map, pre
         covariance_sum = 0
         covariance_threshold = 400
         if n > 0:
-            for beacon, map in beacon_survey_maps.items():
-                cell_mean, cell_cov = map.predict([position], return_cov=True)
-                distance += (measurements[beacon] - cell_mean[0])**2
-                covariance_sum += cell_cov[0]
-            distance = np.sqrt(distance/n)
+            beacons_used = 0
+            for address, measurement in measurements.items():
+                if address in beacons.keys():
+                    beacon = beacons[address]
+                    predicted_cell_rssi, cell_cov = beacon.get_map.predict(
+                        [position], return_cov=True)
+                    
+
+                    if cell_cov[0] < 0.1: # for sparse areas
+                        predicted_cell_rssi = beacon.get_offset_rssi(position)
+                    else:
+                        predicted_cell_rssi = predicted_cell_rssi[0] # unpacking
+
+                    distance += (measurement - predicted_cell_rssi[0])**2
+                    beacons_used += 1
+
+            distance = np.sqrt(distance/beacons_used)
+
             #print(f"cell covariance : {covariance_sum}")
 
             p += np.exp(-np.exp2(distance)/(2*np.exp2(standard_deviation)))
@@ -63,6 +64,9 @@ def calculate_cell_probabilities(measurements, beacon_survey_maps, area_map, pre
         #print(f"cell_position: {position}  distance: {distance} p: {p}")
         cell.probability = p
         cell.covariance = covariance_sum
+
+        #plot_map_attribute(area_map, MapAttribute.PROB)
+        #plot_map_attribute(area_map, MapAttribute.COV)
 
         if p > max_cell_prob[1]:
             max_cell_prob = (cell, p)
@@ -75,9 +79,17 @@ def main():
     training_data_filepath = Path("data/intel_indoor_training.txt")
     training_data = load_training_data(training_data_filepath)
 
-    survey_maps = create_beacon_survey_maps(training_data)
+    beacons = create_beacon_survey_maps(training_data)
 
-    area_map = Map(starting_point=[-10, -10], ending_point=[20, 20],cell_size=1)
+    starting_point = [-10, -10]
+    ending_point = [20, 20]
+
+    for beacon, map in beacons.items():
+        plot_beacon_map_rssi(beacon, map, starting_point, ending_point)
+        #plot_beacon_map_covariance(beacon, map, starting_point, ending_point)
+
+
+    area_map = Map(starting_point, ending_point, cell_size=1)
     previous_cell = None
     previous_measurement = None
 
@@ -85,19 +97,18 @@ def main():
         current_measurement = get_live_measurement(
             training_data.keys(), previous_measurement)
 
-        rssi_measurement = {beacon:reading[0] for beacon, reading in current_measurement.items()}
+        rssi_measurement = {beacon: reading[0]
+                            for beacon, reading in current_measurement.items()}
 
-        print(f"Current measurement is: {current_measurement}")
+        print(f"rssi measurement is: {rssi_measurement}")
 
         cells, most_likely_cell = calculate_cell_probabilities(
-            rssi_measurement, survey_maps, area_map, previous_cell=previous_cell, prior=Prior.UNIFORM)
+            rssi_measurement, beacons, area_map, previous_cell=previous_cell, prior=Prior.UNIFORM)
 
         sorted_cells = sorted(cells, key=lambda c: c.probability, reverse=True)
-        for cell in sorted_cells[:3]:
+        for i, cell in enumerate(sorted_cells[:3]):
             print(
-                f"Cell: Center:{cell.center} Prob: {cell.probability} Cov: {cell.covariance}")
-
-        #print(f"Most Likely Cell: Center:{most_likely_cell[0].center} Prob: {most_likely_cell[0].probability}")
+                f"{i}. Cell: Center:{cell.center} Prob: {cell.probability} Cov: {cell.covariance}")
 
         previous_cell = most_likely_cell[0]
         previous_measurement = current_measurement

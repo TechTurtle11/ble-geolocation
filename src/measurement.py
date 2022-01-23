@@ -46,12 +46,13 @@ def get_live_measurement(training_data, previous_measurement = None):
     final_measurement = {address:(np.mean(readings),0) for address,readings in delegate.entries.items() if address in BEACON_MAC_ADDRESSES}
 
     if previous_measurement is not None:
-        for beacon,reading in final_measurement.keys():
-            #kalman filter on rssi values
-            rssi = reading[0]
-            previous_rssi, previous_covariance = previous_measurement[beacon]
-            filtered_rssi, next_covariance = kalman_block(previous_rssi,previous_covariance,rssi, A=1, H=1, Q=1.6, R=6)
-            final_measurement[beacon] = (filtered_rssi,next_covariance)
+        for beacon,reading in final_measurement.items():
+            if beacon in previous_measurement.keys():
+                #kalman filter on rssi values
+                rssi = reading[0]
+                previous_rssi, previous_covariance = previous_measurement[beacon]
+                filtered_rssi, next_covariance = kalman_block(previous_rssi,previous_covariance,rssi, A=1, H=1, Q=1.6, R=6)
+                final_measurement[beacon] = (filtered_rssi,next_covariance)
 
         
     return final_measurement
