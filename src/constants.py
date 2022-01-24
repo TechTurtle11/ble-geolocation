@@ -1,6 +1,6 @@
 from enum import Enum
 
-PROPAGATION_CONSTANT = 1
+PROPAGATION_CONSTANT = 3.5
 
 class Prior(Enum):
     UNIFORM = 1

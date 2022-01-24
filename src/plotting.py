@@ -1,23 +1,26 @@
 from __future__ import annotations
-import decimal
+from pathlib import Path
+from time import time
 import matplotlib.pyplot as plt
 import numpy as np
 from map import Map
 from constants import MapAttribute
+import measurement as measure
+from itertools import chain
+from beacon import create_beacons
 
 
-def plot_beacon_map_rssi(beacon_name, beacon_map, starting_point=[-10, -10], ending_point=[20, 20]):
+def plot_beacon_map_rssi(beacon_name, beacon, starting_point=[-10, -10], ending_point=[20, 20]):
 
     x_samples = np.arange(starting_point[0], ending_point[0], 1)
     y_samples = np.arange(starting_point[0], ending_point[0], 1)[::-1]
 
-    predictions = [[beacon_map.predict([np.array([x, y])])[
-        0] for x in x_samples] for y in y_samples]
+    predictions = [[beacon.predict_rssi(np.array([x, y])) for x in x_samples] for y in y_samples]
 
     predictions = np.rint(predictions).astype(int)
 
     plot_heatmap(x_samples, y_samples, predictions,
-                 f"RSSI Map for beacon: {beacon_name}", annotations=True, colorbar=True)
+                 f"RSSI Map for beacon: {beacon_name} at {beacon.position}", annotations=True, colorbar=True)
 
 
 def plot_beacon_map_covariance(beacon_name, beacon_map, starting_point=[-10, -10], ending_point=[20, 20]):
@@ -77,9 +80,91 @@ def plot_map_attribute(map: Map, attribute: MapAttribute):
         title = f"Covariance Heatmap "
         attribute_values = [cell.covariance for cell in cells]
     else:
-        raise ValueError(f"{attribute} isnt supported")
+        raise ValueError(f"{attribute} isn't supported")
 
     attribute_values = np.array(attribute_values).reshape(
         (len(x_samples), len(y_samples)))
 
     plot_heatmap(x_samples, y_samples, attribute_values, title)
+
+
+
+def plot_rssi_distance(beacon,beacon_location):
+
+    fig, ax = plt.subplots()
+    data = beacon.training_data 
+
+    rssi_values = data.T[0]
+    distances = np.linalg.norm(data.T[1:].T - beacon_location,axis=1)
+
+
+    predicted_rssi_values = np.array([beacon.predict_offset_rssi(point) for point in data.T[1:].T])
+
+
+    plt.xlabel("Distance(m)")
+    plt.ylabel("RSSI Value(-DBm)")
+    plt.title(f"Plot showing rssi values with distance for {beacon}")
+
+    plt.scatter(distances,rssi_values)
+    plt.scatter(distances,predicted_rssi_values)
+
+
+def plot_rssi_readings_over_time(data_set,title="unknown"):
+    plot_comparison(data_set,"Time","RSSI Values(-DBm)",title)
+
+def plot_comparison(data_sets,x_axis,y_axis,title):
+
+    fig, ax = plt.subplots()
+
+    plt.xlabel(x_axis)
+    plt.ylabel(y_axis)
+    plt.title(title)
+
+    for name,readings in data_sets.items():
+        plt.plot(readings,label = name)
+
+    plt.legend(loc ="lower right")
+
+
+def plot_filtered_rssi_comparison(measurement,title,round=False):
+    if round:
+        data_set = {"non-filtered":measurement,"filtered":np.round(measure.filter_list(measurement))}
+    else:
+        data_set = {"non-filtered":measurement,"filtered":measure.filter_list(measurement)}
+    plot_rssi_readings_over_time(data_set,title)
+
+
+def produce_measurement_plots(measurement_filepath):
+    
+    measurement = measure.read_measurement_from_file(measurement_filepath)
+    mean_measurement = np.array([np.mean(window) for window in measurement])
+    flattened_readings = np.array(list(chain.from_iterable(measurement)))
+
+    plot_filtered_rssi_comparison(measurement[0],"Window comparison")
+    plot_filtered_rssi_comparison(mean_measurement,"Mean Kalman Filter comparison")
+    plot_filtered_rssi_comparison(flattened_readings,"Raw Kalman filter comparison")
+    plt.show()
+
+
+def produce_beacon_map_plots(training_data_filepath,starting_point,ending_point):
+    training_data = measure.load_training_data(training_data_filepath)
+    beacons = create_beacons(training_data)
+
+    for address, beacon in beacons.items():
+        plot_rssi_distance(beacon,beacon.position)
+        plot_beacon_map_rssi(address, beacon, starting_point, ending_point)
+        plot_beacon_map_covariance(address, beacon.get_map, starting_point, ending_point)
+        plt.show()
+
+def main():
+    measurement_filepath = Path("data/test_measurement.csv")
+    produce_measurement_plots(measurement_filepath)
+
+    training_data_filepath = Path("data/intel_indoor_training.txt")
+    starting_point = [-10, -10]
+    ending_point = [20, 20]
+    produce_beacon_map_plots(training_data_filepath,starting_point,ending_point)
+    
+
+if __name__ == "__main__":
+    main()

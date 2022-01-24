@@ -1,10 +1,11 @@
-from os import path
+from random import sample
 from bluepy.btle import Scanner, DefaultDelegate
-from matplotlib.pyplot import axis
 import numpy as np
 import math
 import logging
 from pathlib import Path
+import math
+import csv
 
 logging.basicConfig(filename='logs/measurement.log', level=logging.DEBUG)
 
@@ -15,8 +16,10 @@ BEACON_MAC_ADDRESSES = ['e4:5f:01:63:71:64','e4:5f:01:63:71:e5','e4:5f:01:63:71:
 
 class ScanDelegate(DefaultDelegate):
 
-    def __init__(self):
+
+    def __init__(self,time_stamps= False):
         DefaultDelegate.__init__(self)
+        self._time_stamps = time_stamps
         self.entries={}
 
     def handleDiscovery(self, dev, isNewDev, isNewData):
@@ -30,7 +33,6 @@ class ScanDelegate(DefaultDelegate):
             self.entries[dev.addr] = [dev.rssi]
         else:
             self.entries[dev.addr].append(dev.rssi)
-
 
 
 
@@ -71,8 +73,42 @@ def get_training_measurement():
     return measurement_averaged
 
 
+def timed_measurement(beacon_name, time):
 
+    total_windows = math.ceil(time/BEACON_WINDOW)
+    total_beacon_samples = total_windows*BEACON_SAMPLES_PER_WINDOW
 
+    raw_readings = []
+
+    for window in range(total_windows):
+        delegate= ScanDelegate()
+        scanner = Scanner().withDelegate(delegate)
+        for _ in range(BEACON_SAMPLES_PER_WINDOW):
+            devices = scanner.scan(1.1*(BEACON_WINDOW/BEACON_SAMPLES_PER_WINDOW))
+
+        if beacon_name in delegate.entries.keys():
+            window_readings = delegate.entries[beacon_name]#raw rssi data
+            raw_readings.append(window_readings)
+
+    return raw_readings
+
+def collect_and_write_timed_measurement(beacon_name,time,filepath):
+    readings = timed_measurement(beacon_name,time)
+    print(readings)
+    with open(filepath,"w+") as csv_file:
+        csvWriter = csv.writer(csv_file,delimiter=',')
+        csvWriter.writerows(readings)
+
+def read_measurement_from_file(filepath):
+    measurement = []
+    with open(filepath,"r") as csv_file:
+
+        for window in csv_file.readlines():
+            readings_strings = window.strip("\n").strip("\t").split(",")
+            reading = [int(num, base=10) for num in readings_strings]
+            measurement.append(reading)
+
+    return measurement
 
 def load_training_data(filepath: Path):
     """
@@ -113,7 +149,6 @@ def write_training_data_to_file(training_data: dict, filepath: Path,mode= "w"):
         for beacon, data in training_data.items():
             lines = [f"{position[0]},{position[1]}&{beacon},{rssi}\n" for position,rssi in data]
             file.writelines(lines)
-
 
 
 
@@ -173,7 +208,42 @@ def kalman_block(previous_mean, previous_var, new_observation, A, H, Q, R):
 
     return new_mean, new_var
 
+
+def filter_list(array, start_mean=None,previous_var=1):
+    """
+    filters list using a kalman filter
+    parameters are setup for rssi values
+
+    Parameters:
+    array: the array to be filtered
+    start_mean: the start start if wanted to adjust
+    start_var: the start variance if wanted to adjust
+
+    Returns:
+    filtered_means: filtered array
+    """
+    i = 0
+    if start_mean is None:
+        previous_observation = array[0]
+        i+=1
+    else:
+        previous_observation = start_mean
+    
+    filtered_means = np.array([previous_observation])
+    previous_var = 0
+    while i < len(array):
+        filtered_rssi, next_covariance = kalman_block(previous_observation, previous_var, array[i], A=1, H=1, Q=0.008, R=1)
+        filtered_means = np.append(filtered_means,[filtered_rssi])
+
+        previous_observation = filtered_rssi
+        previous_var = next_covariance
+        i+=1
+    
+    return filtered_means
+
+
 def main():
+    
 
     data = collect_training_data()
 
@@ -185,4 +255,8 @@ def main():
 
 
 if __name__ == "__main__":
+
+    measurement_filepath = Path("data/test_measurement.csv")
+    collect_and_write_timed_measurement('e4:5f:01:63:71:64',1000,measurement_filepath)
+    print(read_measurement_from_file(measurement_filepath))
     main()
