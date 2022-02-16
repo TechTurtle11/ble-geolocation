@@ -1,25 +1,23 @@
-from httplib2 import RETRIES
-from importlib_metadata import re
-import numpy as np
 import sklearn.gaussian_process as gp
-from constants import PROPAGATION_CONSTANT
+from sklearn.linear_model import LinearRegression
+from constants import beacon_locations
+
 
 
 class Beacon():
 
 
-    def __init__(self,address,training_data,position=None,rssi_at_position=None) -> None:
+    def __init__(self,address,training_data,) -> None:
         self._mac_address = address
         self._training_data = training_data
         self._map = self.create_beacon_map(training_data)
+        self._gpr,self._lg = self.create_beacon_map(training_data)
 
         Y = training_data.T[0]
         X = training_data.T[1:].T
 
-        # test assuming actual position is in training data 
-        index = np.argmax(Y)
-        self._position = X[index]
-        self._rssi_at_position = Y[index]
+
+        self._position = beacon_locations[address]
 
 
 
@@ -29,22 +27,23 @@ class Beacon():
         Y = training_data.T[0]
         X = training_data.T[1:].T
 
-        kernel = gp.kernels.RBF(length_scale=5)
+        kernel =gp.kernels.RBF(length_scale=5,length_scale_bounds=(0.00001,100))
         gpr = gp.GaussianProcessRegressor(
-            kernel=kernel, random_state=0, normalize_y=False).fit(X,Y)
-        
-        return gpr
+            kernel=kernel, random_state=0, normalize_y=False,n_restarts_optimizer=2).fit(X,Y)
+            
+        lg = LinearRegression().fit(X,Y)
+        return gpr,lg
 
     def predict_offset_rssi(self,point):
-        return -10*PROPAGATION_CONSTANT*np.log10(np.linalg.norm(point-self._position)) + self._rssi_at_position
+        return self._lg.predict([point])
 
 
     def predict_rssi(self,point,offset = False):
 
-        predicted_rssi, cell_cov = self._map.predict([point], return_cov=True)
+        predicted_rssi, cell_cov = self._gpr.predict([point], return_cov=True)
 
-        if cell_cov[0] > 0.3 and offset: # for sparse areas
-            predicted_rssi = self.predict_offset_rssi(point)
+        if cell_cov[0] > 0.5 and offset: # for sparse areas
+            predicted_rssi = self.predict_offset_rssi(point)[0]
         else:
             predicted_rssi = predicted_rssi[0] # unpacking
 
@@ -53,7 +52,7 @@ class Beacon():
 
     @property
     def get_map(self):
-        return self._map
+        return self._gpr
 
     @property
     def position(self):

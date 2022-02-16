@@ -1,16 +1,11 @@
-from ast import While
 import logging
 from pathlib import Path
-from random import sample
 import numpy as np
-from beacon import Beacon, create_beacons
 from map import Map
-from enum import Enum
-from constants import Prior, MapAttribute,PROPAGATION_CONSTANT
+from constants import Prior
 
-
+from beacon import create_beacons
 from measurement import get_live_measurement, load_training_data
-import plotting as plot
 
 logging.basicConfig(filename='logs/localisation.log', level=logging.ERROR)
 
@@ -41,11 +36,7 @@ def calculate_cell_probabilities(measurements, beacons, area_map, previous_cell=
 
             p += np.exp(-np.exp2(distance)/(2*np.exp2(standard_deviation)))
 
-        #print(f"cell_position: {position}  distance: {distance} p: {p}")
         cell.probability = p
-
-        #plot_map_attribute(area_map, MapAttribute.PROB)
-        #plot_map_attribute(area_map, MapAttribute.COV)
 
 
     return cells
@@ -63,9 +54,11 @@ def main():
 
 
     area_map = Map(starting_point, ending_point, cell_size=1)
+
+    selected_cells = []
+
     previous_cell = None
     previous_measurement = None
-
     while True:
         current_measurement = get_live_measurement(
             training_data.keys(), previous_measurement)
@@ -82,6 +75,8 @@ def main():
         for i, cell in enumerate(sorted_cells[:3]):
             print(
                 f"{i}. Cell: Center:{cell.center} Prob: {cell.probability} Cov: {cell.covariance}")
+
+        selected_cells.append(sorted_cells[0])
 
         previous_cell = sorted_cells[0]
         previous_measurement = current_measurement

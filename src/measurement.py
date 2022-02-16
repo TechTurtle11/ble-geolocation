@@ -1,4 +1,3 @@
-from random import sample
 from bluepy.btle import Scanner, DefaultDelegate
 import numpy as np
 import math
@@ -13,7 +12,6 @@ logging.basicConfig(filename='logs/measurement.log', level=logging.DEBUG)
 BEACON_WINDOW = 1 #Seconds
 BEACON_SAMPLES_PER_WINDOW = 10
 BEACON_MAC_ADDRESSES = ['e4:5f:01:63:71:64','e4:5f:01:63:71:e5','e4:5f:01:63:71:55','e4:5f:01:63:71:b5','e4:5f:01:63:71:a3']
-
 class ScanDelegate(DefaultDelegate):
 
 
@@ -64,13 +62,14 @@ def get_training_measurement():
     delegate= ScanDelegate()
     scanner = Scanner().withDelegate(delegate)
     
-    for i in range(BEACON_SAMPLES_PER_WINDOW):
-        devices = scanner.scan(BEACON_WINDOW/BEACON_SAMPLES_PER_WINDOW)
+    for j in range(5):
+        for i in range(BEACON_SAMPLES_PER_WINDOW):
+            devices = scanner.scan(0.1)
 
 
-    measurement_general = {address:readings for address,readings in delegate.entries.items() if address in BEACON_MAC_ADDRESSES}
-    measurement_averaged = {k: np.mean(v) for k, v in measurement_general.items()}
-    return measurement_averaged
+    measurement_general = {address: readings for address,readings in delegate.entries.items() if address in BEACON_MAC_ADDRESSES}
+
+    return measurement_general
 
 
 def timed_measurement(beacon_name, time):
@@ -127,12 +126,14 @@ def load_training_data(filepath: Path):
     training_data = {} # dictionary with a numpy array of training data for each beacon
     with open(filepath,"r") as file:
         for entry in file.readlines():
+            print(entry)
             raw_position, measurements = entry.strip("\n").strip("\t").split("&")
-            measurement_pairs = [measurement.split(",") for measurement in measurements.split(";")]
 
             position =  np.array([float(coord) for coord in raw_position.split(",")])
 
-            for beacon, rssi in measurement_pairs:
+            beacon,rssi_string = measurements.split(",")
+            rssi_strings = rssi_string.split(";")
+            for rssi in rssi_strings:
                 row = np.array([float(rssi),*position])
                 if not beacon in training_data.keys():
                     training_data[beacon] = np.array([row])
@@ -141,14 +142,42 @@ def load_training_data(filepath: Path):
 
     return training_data
 
+def process_training_data(training_data,partitions = 4):
+    new_training_data = {}
+    for beacon, beacon_data in training_data.items():
+        point_map = {}
+        for value,x,y in beacon_data:
+            if (x,y) not in point_map.keys():
+                point_map[(x,y)] = []
+            
+            point_map[(x,y)].append(value)
+        #print(point_map)
+        for point,values in point_map.items():
+            for i in range(0,len(values)//BEACON_SAMPLES_PER_WINDOW):
+                avg_value = np.mean(values[i:i*BEACON_SAMPLES_PER_WINDOW])
+                if not np.isnan(avg_value):
+                    row = np.array([float(avg_value),*point])
+                    if not beacon in new_training_data.keys():
+                        new_training_data[beacon] = np.array([row])
+                    else:
+                        new_training_data[beacon] = np.append(training_data[beacon],[row],axis=0)
+
+    return new_training_data
+
+
 
 
 def write_training_data_to_file(training_data: dict, filepath: Path,mode= "w"):
     with open(filepath,mode) as file:
-
+        lines = []
         for beacon, data in training_data.items():
-            lines = [f"{position[0]},{position[1]}&{beacon},{rssi}\n" for position,rssi in data]
-            file.writelines(lines)
+            
+            for position,rssi_values in data:
+
+                rssi_string = ";".join([str(rssi) for rssi in rssi_values])
+                lines.append(f"{position[0]},{position[1]}&{beacon},{rssi_string}\n")
+
+        file.writelines(lines)
 
 
 
@@ -165,11 +194,12 @@ def collect_training_data():
         measurement = get_training_measurement()
         print(f"Measurement was {measurement} :")
 
-        for beacon,rssi  in measurement.items():
+        for beacon,rssi_values  in measurement.items():
 
             if not beacon in training_data.keys():
                 training_data[beacon] = []
-            training_data[beacon].append([position,rssi])
+        
+            training_data[beacon].append([position,rssi_values])
             
 
         loop_continue = input("Type stop if you have finished collecting training data: ")
@@ -207,6 +237,28 @@ def kalman_block(previous_mean, previous_var, new_observation, A, H, Q, R):
     new_var = (1 - K * H) * P_mean
 
     return new_mean, new_var
+
+
+def cheap_filter_list(array,start_mean=None):
+    i = 0
+    if start_mean is None:
+        previous_observation = array[0]
+        i+=1
+    else:
+        previous_observation = start_mean
+
+
+    filtered_means = np.array([previous_observation])
+
+    while i < len(array):
+        filtered_rssi = array[i]*0.25 + previous_observation*0.75
+        filtered_means = np.append(filtered_means,[filtered_rssi])
+
+        previous_observation = filtered_rssi
+        i+=1
+    
+    return filtered_means
+
 
 
 def filter_list(array, start_mean=None,previous_var=1):
@@ -247,7 +299,7 @@ def main():
 
     data = collect_training_data()
 
-    training_data_filepath = Path("data/intel_indoor_training.txt")
+    training_data_filepath = Path("data/working_test.txt")
     print(data)
     write_training_data_to_file(data,training_data_filepath)
 
@@ -256,7 +308,7 @@ def main():
 
 if __name__ == "__main__":
 
-    measurement_filepath = Path("data/test_measurement.csv")
-    collect_and_write_timed_measurement('e4:5f:01:63:71:64',1000,measurement_filepath)
-    print(read_measurement_from_file(measurement_filepath))
+    #measurement_filepath = Path("data/test_rotation_270_measurement.csv")
+    #collect_and_write_timed_measurement('e4:5f:01:63:71:64',60,measurement_filepath)
+    #print(read_measurement_from_file(measurement_filepath))
     main()

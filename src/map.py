@@ -42,6 +42,9 @@ class Cell():
     def isNeighbor(self,cell):
         return np.linalg.norm(cell.center - self._center) <= np.sqrt(2*self._cell_length)
 
+    def __str__(self) -> str:
+        return f"Cell: Center:{self._center} Prob: {self._probability} Cov: {self._covariance}"
+
 
 
 

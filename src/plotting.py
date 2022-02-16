@@ -10,17 +10,17 @@ from itertools import chain
 from beacon import create_beacons
 
 
-def plot_beacon_map_rssi(beacon_name, beacon, starting_point=[-10, -10], ending_point=[20, 20]):
+def plot_beacon_map_rssi(beacon_name, beacon, starting_point=[-10, -10], ending_point=[20, 20],offset=False):
 
     x_samples = np.arange(starting_point[0], ending_point[0], 1)
     y_samples = np.arange(starting_point[0], ending_point[0], 1)[::-1]
 
-    predictions = [[beacon.predict_rssi(np.array([x, y])) for x in x_samples] for y in y_samples]
+    predictions = [[beacon.predict_rssi(np.array([x, y]),offset=offset) for x in x_samples] for y in y_samples]
 
     predictions = np.rint(predictions).astype(int)
 
-    plot_heatmap(x_samples, y_samples, predictions,
-                 f"RSSI Map for beacon: {beacon_name} at {beacon.position}", annotations=True, colorbar=True)
+    fig,ax = plot_heatmap(x_samples, y_samples, predictions,
+                 f"RSSI Map for beacon: {beacon_name} at {beacon.position}","Coordinate (m)","Coordinate (m)", annotations=True, colorbar=True)
 
 
 def plot_beacon_map_covariance(beacon_name, beacon_map, starting_point=[-10, -10], ending_point=[20, 20]):
@@ -30,10 +30,22 @@ def plot_beacon_map_covariance(beacon_name, beacon_map, starting_point=[-10, -10
         1][0][0] for x in x_samples] for y in y_samples]
 
     plot_heatmap(x_samples, y_samples, np.array(predictions),
-                 f"Covariance Map for beacon: {beacon_name}", colorbar=True)
+                 f"Covariance Map for beacon: {beacon_name}","Coordinate (m)","Coordinate (m)", colorbar=True)
+
+def plot_training_data(training_data):
+    x_samples = []
+    y_samples = []
+    rssi_values = []
+    for beacon_data in training_data.values():
+        for point,value in beacon_data:
+            x_samples.append(point[0])
+            y_samples.append(point)
+            rssi_values.append(value)
+
+    
 
 
-def plot_heatmap(x_samples, y_samples, predictions, title, annotations=False, colorbar=False):
+def plot_heatmap(x_samples, y_samples, predictions, title,x_label,y_label, annotations=False, colorbar=False):
 
     fig, ax = plt.subplots()
     im = ax.imshow(predictions)
@@ -41,6 +53,8 @@ def plot_heatmap(x_samples, y_samples, predictions, title, annotations=False, co
     # Setting the labels
     ax.set_xticks(np.arange(len(y_samples)))
     ax.set_yticks(np.arange(len(x_samples)))
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
 
     # labeling respective list entries
     ax.set_xticklabels(x_samples)
@@ -62,6 +76,7 @@ def plot_heatmap(x_samples, y_samples, predictions, title, annotations=False, co
     ax.set_title(title)
     fig.tight_layout()
     plt.show()
+    return fig,ax
 
 
 def plot_map_attribute(map: Map, attribute: MapAttribute):
@@ -85,7 +100,7 @@ def plot_map_attribute(map: Map, attribute: MapAttribute):
     attribute_values = np.array(attribute_values).reshape(
         (len(x_samples), len(y_samples)))
 
-    plot_heatmap(x_samples, y_samples, attribute_values, title)
+    fig,ax = plot_heatmap(x_samples, y_samples, attribute_values, title,"Coordinate (m)","Coordinate (m)",)
 
 
 
@@ -128,43 +143,55 @@ def plot_comparison(data_sets,x_axis,y_axis,title):
 
 def plot_filtered_rssi_comparison(measurement,title,round=False):
     if round:
-        data_set = {"non-filtered":measurement,"filtered":np.round(measure.filter_list(measurement))}
+        data_set = {"non-filtered":measurement,"filtered":np.round(measure.filter_list(measurement)),"filtered_cheap":np.round(measure.cheap_filter_list(measurement))}
     else:
-        data_set = {"non-filtered":measurement,"filtered":measure.filter_list(measurement)}
+        data_set = {"non-filtered":measurement,"filtered":measure.filter_list(measurement),"filtered_cheap":measure.cheap_filter_list(measurement)}
     plot_rssi_readings_over_time(data_set,title)
 
 
-def produce_measurement_plots(measurement_filepath):
+def produce_measurement_plots(measurement_filepath,round=False):
     
     measurement = measure.read_measurement_from_file(measurement_filepath)
     mean_measurement = np.array([np.mean(window) for window in measurement])
     flattened_readings = np.array(list(chain.from_iterable(measurement)))
 
-    plot_filtered_rssi_comparison(measurement[0],"Window comparison")
-    plot_filtered_rssi_comparison(mean_measurement,"Mean Kalman Filter comparison")
-    plot_filtered_rssi_comparison(flattened_readings,"Raw Kalman filter comparison")
+    plot_filtered_rssi_comparison(measurement[0],"Window comparison",round)
+    plot_filtered_rssi_comparison(mean_measurement,"Mean Kalman Filter comparison",round)
+    plot_filtered_rssi_comparison(flattened_readings,"Raw Kalman filter comparison",round)
     plt.show()
 
 
 def produce_beacon_map_plots(training_data_filepath,starting_point,ending_point):
     training_data = measure.load_training_data(training_data_filepath)
+    training_data = measure.process_training_data(training_data)
     beacons = create_beacons(training_data)
 
     for address, beacon in beacons.items():
         plot_rssi_distance(beacon,beacon.position)
-        plot_beacon_map_rssi(address, beacon, starting_point, ending_point)
+        plot_beacon_map_rssi(address, beacon, starting_point, ending_point,offset=True)
         plot_beacon_map_covariance(address, beacon.get_map, starting_point, ending_point)
         plt.show()
 
-def main():
-    measurement_filepath = Path("data/test_measurement.csv")
-    produce_measurement_plots(measurement_filepath)
+def produce_rotation_plot():
+    measurement_filepaths = {angle: Path(f"data/test_rotation_{angle}_measurement.csv") for angle in [0,90,180,270,]}
+    measurements = {angle:measure.read_measurement_from_file(filepath) for angle,filepath in measurement_filepaths.items()}
+    measurements = {angle:measure.filter_list(np.array(list(chain.from_iterable(measurement)))) for angle,measurement in measurements.items()}
+    plot_rssi_readings_over_time(measurements, "RSSI by angle of rotation")
 
-    training_data_filepath = Path("data/intel_indoor_training.txt")
-    starting_point = [-10, -10]
-    ending_point = [20, 20]
+def main():
+
+
+    #produce_rotation_plot()
+    #input()
+    measurement_filepath = Path("data/test_measurement.csv")
+    produce_measurement_plots(measurement_filepath,round=True)
+    input()
+    training_data_filepath = Path("data/working_test.txt")
+    starting_point = [-2, -2]
+    ending_point = [15, 15]
     produce_beacon_map_plots(training_data_filepath,starting_point,ending_point)
     
 
 if __name__ == "__main__":
+    print("hello")
     main()
