@@ -1,13 +1,13 @@
 from __future__ import annotations
 from pathlib import Path
-from time import time
 import matplotlib.pyplot as plt
 import numpy as np
 from map import Map
-from constants import MapAttribute
+from constants import MapAttribute, beacon_locations
 import measurement as measure
 from itertools import chain
 from beacon import create_beacons
+import file_helper as fh
 
 
 def plot_beacon_map_rssi(beacon_name, beacon, starting_point=[-10, -10], ending_point=[20, 20],offset=False):
@@ -140,6 +140,25 @@ def plot_comparison(data_sets,x_axis,y_axis,title):
 
     plt.legend(loc ="lower right")
 
+def plot_position_prediction(position, predicted_cells):
+
+    predicted_positions = np.array([cell.center for cell in predicted_cells])
+    beacon_positions = np.array(list(beacon_locations.values()))
+
+    fig, ax = plt.subplots()
+
+    ax.set_xlabel("Coordinate (m)")
+    ax.set_ylabel("Coordinate (m)")
+    ax.set_title(f"Plot showing position prediction for {position}")
+
+    print(beacon_positions[:,0])
+    ax.scatter(position[0],position[1],label = "Position to Predict")
+    ax.scatter(beacon_positions[:,0],beacon_positions[:,1],label = "Beacons")
+    ax.scatter(predicted_positions[:,0],predicted_positions[:,1],label = "Position Predictions")
+    ax.legend()
+    plt.show()
+
+
 
 def plot_filtered_rssi_comparison(measurement,title,round=False):
     if round:
@@ -149,9 +168,14 @@ def plot_filtered_rssi_comparison(measurement,title,round=False):
     plot_rssi_readings_over_time(data_set,title)
 
 
+def produce_position_prediction_plots(filepath):
+    predictions = fh.read_position_prediction_from_file(filepath)
+    for position, cells in predictions.values():
+        plot_position_prediction(position,cells)
+
 def produce_measurement_plots(measurement_filepath,round=False):
     
-    measurement = measure.read_measurement_from_file(measurement_filepath)
+    measurement = fh.read_measurement_from_file(measurement_filepath)
     mean_measurement = np.array([np.mean(window) for window in measurement])
     flattened_readings = np.array(list(chain.from_iterable(measurement)))
 
@@ -162,30 +186,33 @@ def produce_measurement_plots(measurement_filepath,round=False):
 
 
 def produce_beacon_map_plots(training_data_filepath,starting_point,ending_point):
-    training_data = measure.load_training_data(training_data_filepath)
-    training_data = measure.process_training_data(training_data)
+    training_data = fh.load_training_data(training_data_filepath)
+    #training_data = measure.process_training_data(training_data)
     beacons = create_beacons(training_data)
 
     for address, beacon in beacons.items():
         plot_rssi_distance(beacon,beacon.position)
-        plot_beacon_map_rssi(address, beacon, starting_point, ending_point,offset=True)
+        plot_beacon_map_rssi(address, beacon, starting_point, ending_point,offset=False)
         plot_beacon_map_covariance(address, beacon.get_map, starting_point, ending_point)
         plt.show()
 
 def produce_rotation_plot():
     measurement_filepaths = {angle: Path(f"data/test_rotation_{angle}_measurement.csv") for angle in [0,90,180,270,]}
-    measurements = {angle:measure.read_measurement_from_file(filepath) for angle,filepath in measurement_filepaths.items()}
+    measurements = {angle:fh.read_measurement_from_file(filepath) for angle,filepath in measurement_filepaths.items()}
     measurements = {angle:measure.filter_list(np.array(list(chain.from_iterable(measurement)))) for angle,measurement in measurements.items()}
     plot_rssi_readings_over_time(measurements, "RSSI by angle of rotation")
 
+
+
 def main():
 
+    produce_position_prediction_plots(Path("data/predictions/test.txt"))
 
     #produce_rotation_plot()
     #input()
-    measurement_filepath = Path("data/test_measurement.csv")
-    produce_measurement_plots(measurement_filepath,round=True)
-    input()
+    #measurement_filepath = Path("data/test_measurement.csv")
+    #produce_measurement_plots(measurement_filepath,round=True)
+    #input()
     training_data_filepath = Path("data/working_test.txt")
     starting_point = [-2, -2]
     ending_point = [15, 15]

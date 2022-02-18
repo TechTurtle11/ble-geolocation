@@ -1,12 +1,14 @@
 import numpy as np
 
+from constants import Prior
+
 
 
 
 class Cell():
 
 
-    def __init__(self, center, cell_length ) -> None:
+    def __init__(self, center, cell_length=1 ) -> None:
         self._center = center
         self._cell_length = cell_length
         self._probability = 0
@@ -22,6 +24,10 @@ class Cell():
     @property
     def center(self):
         return self._center
+
+    def center_hash(self):
+        tmp = self._center[1] + (self._center[0]+1)/2
+        return self._center + tmp * tmp
 
     @property
     def probability(self):
@@ -45,6 +51,27 @@ class Cell():
     def __str__(self) -> str:
         return f"Cell: Center:{self._center} Prob: {self._probability} Cov: {self._covariance}"
 
+    def calculate_probabilty(self, measurements,beacons, previous_cell = None, prior= Prior.UNIFORM, standard_deviation=1):
+        distance = 0.
+        position = self._center
+        log_p = np.inf
+
+        prior_condition =  (prior is Prior.LOCAL and previous_cell is not None and previous_cell.isNeighbor(self)) or prior is Prior.UNIFORM
+
+
+        if len(measurements) > 0  and prior_condition:
+            beacons_used = 0
+            for address, measurement in measurements.items():
+                if address in beacons.keys():
+                    predicted_rssi = beacons[address].predict_rssi(position)
+                    distance += (measurement - predicted_rssi)**2
+                    beacons_used += 1
+
+
+            distance = np.sqrt(distance/beacons_used)
+            log_p = np.exp2(distance)/(2*np.exp2(standard_deviation))
+            #p = -np.exp2(distance)/(2*np.exp2(standard_deviation))
+        return log_p
 
 
 
