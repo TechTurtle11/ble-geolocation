@@ -9,7 +9,7 @@ from beacon import create_beacons
 from constants import MapAttribute, Prior
 from map import Map
 from measurement import get_live_measurement, process_training_data
-from models import KNN, GaussianProcessModel
+from models import KNN, GaussianKNNModel, GaussianProcessModel
 from plotting import plot_map_attribute, produce_localisation_distance_plot
 
 logging.basicConfig(filename='logs/localisation.log', level=logging.ERROR)
@@ -65,14 +65,15 @@ def run_localisation_comparison(training_data_filepath, evaluation_data_filepath
 
 
 
-    gaussian = GaussianProcessModel(training_data_filepath,prior=Prior.UNIFORM,starting_point=[-3,-3],ending_point=[10,17])
+    gaussian = GaussianProcessModel(training_data_filepath,prior=Prior.UNIFORM,starting_point=[-3,-3],ending_point=[10,17],cell_size=0.6)
     knn = KNN(training_data_filepath,)
+    gaussianknn = GaussianKNNModel(training_data_filepath,prior=Prior.UNIFORM,starting_point=[-3,-3],ending_point=[10,17],cell_size=0.6)
 
     gaussian_predictions = run_localisation_on_file(evaluation_data_filepath,gaussian)
-    print(gaussian_predictions)
+    gaussian_knn_predictions = run_localisation_on_file(evaluation_data_filepath,gaussianknn)
+
     knn_predictions = run_localisation_on_file(evaluation_data_filepath,knn)
-    print(knn_predictions)
-    produce_localisation_distance_plot({"Gaussian":gaussian_predictions, "KNN":knn_predictions})
+    produce_localisation_distance_plot({"Gaussian":gaussian_predictions,"GaussianKNN":gaussian_knn_predictions, "KNN":knn_predictions})
 
 
 

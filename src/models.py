@@ -22,11 +22,11 @@ class BaseModel(ABC):
 
 class GaussianProcessModel(BaseModel):
 
-    def __init__(self, training_data_filepath: Path, prior,starting_point = [-3,-3],ending_point = [10,17]):
+    def __init__(self, training_data_filepath: Path, prior,starting_point = [-3,-3],ending_point = [10,17],cell_size=1):
         beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
         training_data = process_training_data(training_data)
         self.beacons = create_beacons(beacon_positions, training_data)
-        self.area_map = Map(starting_point, ending_point, cell_size=1)
+        self.area_map = Map(starting_point, ending_point, cell_size)
         self.prior = prior
 
     def predict_position(self, rssi_measurement,previous_cell = None):
@@ -35,7 +35,32 @@ class GaussianProcessModel(BaseModel):
 
         sorted_cells = sorted(calculated_cells, key=lambda c: c.probability, reverse=False)
 
+
+
         return sorted_cells[0].center
+
+
+class GaussianKNNModel(GaussianProcessModel):
+
+
+
+    def predict_position(self, rssi_measurement,previous_cell = None):
+
+        calculated_cells = self.area_map.calculate_cell_probabilities(rssi_measurement,self.beacons,previous_cell,self.prior)
+
+        sorted_cells = sorted(calculated_cells, key=lambda c: c.probability, reverse=False)
+
+        k = 3
+        first_k = sorted_cells[:k]
+
+        position = np.zeros(2)
+
+        prob_sum = sum([abs(cell.probability) for cell in first_k])
+        for cell in first_k:
+            position += (abs(cell.probability) / prob_sum) * cell.center
+
+
+        return position
 
 
 class KNN(BaseModel):
