@@ -246,7 +246,7 @@ def produce_localisation_distance_plot(algorithm_predictions):
 
     print(labels)
     br = np.arange(len(labels))
-    bar_width = 0.25
+    bar_width = 0.2
     plt.xticks(ticks = br+bar_width, labels = list(labels))
 
     for i,algorithm in enumerate(distances.keys()):

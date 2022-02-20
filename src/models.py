@@ -96,3 +96,46 @@ class KNN(BaseModel):
             position += (distance / distance_sum) * point
 
         return position
+
+
+
+class PropagationModel(BaseModel):
+
+    def __init__(self, training_data_filepath: Path,n=2):
+        self.beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
+        training_data = process_training_data(training_data,type = const.MeasurementProcess.MEAN) 
+
+        #get constant values closest to 1
+        beacon_constants = {}
+        for beacon,data in training_data.items():
+            beacon_position = self.beacon_positions[beacon]
+            distances = np.linalg.norm(data[:,1:]-beacon_position,axis=1) - 1
+            closest_index = np.argmin(distances)
+            beacon_constants[beacon] = (data[closest_index,0], 1+distances[closest_index])
+
+
+        self.distance_functions = {}
+        for beacon, constants in beacon_constants.items():
+            self.distance_functions[beacon] = lambda rssi : constants[1]*np.power((rssi-constants[0])/-10*n,10)
+
+
+    def predict_position(self, rssi_measurement):
+
+        distance_sum = 0
+        beacon_distances = {}
+        for beacon, measurement in rssi_measurement.items():
+            distance = self.distance_functions[beacon](measurement)
+            distance_sum+= distance
+            beacon_distances[beacon] = distance
+
+        
+        position = np.zeros(2)
+
+        for beacon,point in self.beacon_positions.items():
+            position += (beacon_distances[beacon] / distance_sum) * point
+
+        return position
+
+        
+
+
