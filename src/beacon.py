@@ -25,23 +25,16 @@ class Beacon():
 
         gpr = gp.GaussianProcessRegressor(
             kernel=kernel, random_state=0, normalize_y=False, n_restarts_optimizer=2).fit(X, Y)
-
+        
         lg = LinearRegression().fit(X, Y)
         return gpr, lg
 
     def predict_offset_rssi(self, point):
         return self._lg.predict([point])
 
-    def predict_rssi(self, point, offset=False):
-
-        predicted_rssi, cell_cov = self._gpr.predict([point], return_cov=True)
-
-        if cell_cov[0] > 0.5 and offset:  # for sparse areas
-            predicted_rssi = self.predict_offset_rssi(point)[0]
-        else:
-            predicted_rssi = predicted_rssi[0]  # unpacking
-
-        return predicted_rssi,cell_cov
+    def predict_rssi(self, points, offset=False):
+        results = self._gpr.predict(points,return_std=True)
+        return results[0], results[1]
 
     
 

@@ -77,6 +77,7 @@ class Map():
         self._cells = []
         self._dimensions = (starting_point, ending_point)
         self._cell_size = cell_size
+        self.cell_centers = np.empty((0,2))
 
         if starting_point is None:
             starting_point = (0.5, 0.5)
@@ -88,6 +89,7 @@ class Map():
                 for j in np.arange(start=max(ending_point), stop=min(starting_point), step=-self._cell_size):
                     center = np.array([i, j])
                     self._cells.append(Cell(center, self._cell_size))
+                    self.cell_centers = np.append(self.cell_centers,np.array([center]),axis=0)
 
     def add_new_cells(self, new_cells):
         for cell in new_cells:
@@ -108,8 +110,21 @@ class Map():
     def calculate_cell_probabilities(self, measurements, beacons,previous_cell=None, prior=Prior.UNIFORM):
         standard_deviation = 2
 
-        for cell in self._cells:
-            cell.probability = cell.calculate_probabilty(
-                measurements, beacons, previous_cell, prior, standard_deviation)
+        distance_sum = np.zeros(len(self.cell_centers))
+        std_sum = np.zeros(len(self.cell_centers))
+        beacons_used = {address:beacon for address,beacon in beacons.items() if address in measurements.keys()}
+        for address,beacon in beacons_used.items():
+            rssi_predictions,covariance_predictions = beacon.predict_rssi(self.cell_centers)
+            distance_sum += np.square(measurements[address] - rssi_predictions)
+            std_sum += covariance_predictions
+
+    
+        distances = np.sqrt(distance_sum / len(beacons_used))
+        log_p = np.exp2(distances) / (2 * np.exp2(standard_deviation))
+            
+        for i,cell in enumerate(self._cells):
+            prior_condition = (prior is Prior.LOCAL and previous_cell is not None and previous_cell.isNeighbor(self)) or prior is Prior.UNIFORM
+            cell.probability = log_p[i] if prior_condition else np.inf
+            cell.covariance = std_sum[i]
 
         return self._cells

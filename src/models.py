@@ -36,7 +36,6 @@ class GaussianProcessModel(BaseModel):
         sorted_cells = sorted(calculated_cells, key=lambda c: c.probability, reverse=False)
 
 
-
         return sorted_cells[0].center
 
 
@@ -63,7 +62,7 @@ class GaussianKNNModel(GaussianProcessModel):
         return position
 
 
-class KNN(BaseModel):
+class WKNN(BaseModel):
 
     def __init__(self, training_data_filepath:Path):
         self.beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
@@ -94,6 +93,24 @@ class KNN(BaseModel):
         distance_sum = sum([distance for _, distance in first_k])
         for point, distance in first_k:
             position += (distance / distance_sum) * point
+
+        return position
+
+class KNN(BaseModel):
+
+    def __init__(self, training_data_filepath:Path):
+        self.beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
+
+
+    def predict_position(self,rssi_measurement, k=3):
+        sorted_points = sorted(list(rssi_measurement.items()), key = lambda p : p[1],reverse=True)
+        first_k = sorted_points[:k]
+
+        position = np.zeros(2)
+
+        rssi_sum = sum([rssi for _, rssi in first_k])
+        for beacon, rssi in first_k:
+            position += (rssi / rssi_sum) * self.beacon_positions[beacon]
 
         return position
 

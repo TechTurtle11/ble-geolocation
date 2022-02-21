@@ -256,6 +256,35 @@ def produce_localisation_distance_plot(algorithm_predictions):
     plt.show()
 
 
+
+def produce_average_localisation_distance_plot(algorithm_predictions):
+    distances = {}
+    std = {}
+    for algorithm,predictions in algorithm_predictions.items():
+        dist = [np.linalg.norm(actual - prediction) for actual, prediction in predictions]
+        distances[algorithm] = np.mean(dist)
+        std[algorithm] = np.std(dist)
+
+    fig, ax = plt.subplots()
+
+
+    ax.set_xlabel("Algorithm")
+    ax.set_ylabel("Average Error From actual point (m)")
+    ax.set_title(f"Average Error for localisation algorithms") 
+
+    bar_width = 0.3
+
+    ax.grid(which='major', color='#DDDDDD', linewidth=0.8, axis="y",zorder=0)
+    ax.grid(which='minor', color='#EEEEEE', linestyle=':', linewidth=0.5,axis="y",zorder=0)
+    ax.minorticks_on()
+
+    for i,algorithm in enumerate(distances.keys()):
+        ax.bar(bar_width*i,distances[algorithm],yerr=std[algorithm],label = algorithm,width=bar_width,zorder=3)
+
+    ax.legend()
+    plt.show()
+
+
 def main():
     produce_position_prediction_plots(Path("data/predictions/test1.txt"))
 
@@ -264,7 +293,7 @@ def main():
     # measurement_filepath = Path("data/test_measurement.csv")
     # produce_measurement_plots(measurement_filepath,round=True)
     # input()
-    training_data_filepath = Path("data/intel_indoor_training_3.txt")
+    training_data_filepath = Path("data/intel_indoor_training_3_edited.txt")
     starting_point = [-3, -4]
     ending_point = [10, 17]
     produce_beacon_map_plots(training_data_filepath,

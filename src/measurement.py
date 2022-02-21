@@ -97,7 +97,7 @@ def collect_and_write_timed_measurement(beacon_name, time, filepath):
     fh.write_timed_measurement(filepath, readings)
 
 
-def process_training_data(training_data,type = const.MeasurementProcess.MEAN):
+def process_training_data(training_data,type = const.MeasurementProcess.MEDIAN):
     """processes windowed training data"""
     processed_training_data = {}
     for beacon, beacon_data in training_data.items():
@@ -108,6 +108,8 @@ def process_training_data(training_data,type = const.MeasurementProcess.MEAN):
                 rssi_values = window_data
             elif type is const.MeasurementProcess.QUANTILE:
                 rssi_values = np.quantile(window_data,[0.25,0.5,0.75])
+            elif type is const.MeasurementProcess.MEDIAN:
+                rssi_values = [np.median(window_data)]
             else:
                 raise ValueError(f"This value {type} has not been implemented")
 

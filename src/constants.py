@@ -23,3 +23,4 @@ class MeasurementProcess(Enum):
     ALL = 1
     MEAN = 2
     QUANTILE = 3
+    MEDIAN = 4
