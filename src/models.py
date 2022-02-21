@@ -118,7 +118,7 @@ class KNN(BaseModel):
 
 class PropagationModel(BaseModel):
 
-    def __init__(self, training_data_filepath: Path,n=2):
+    def __init__(self, training_data_filepath: Path, n):
         self.beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
         training_data = process_training_data(training_data,type = const.MeasurementProcess.MEAN) 
 

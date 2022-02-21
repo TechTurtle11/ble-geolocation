@@ -34,7 +34,7 @@ class ScanDelegate(DefaultDelegate):
             self.entries[dev.addr].append(dev.rssi)
 
 
-def get_live_measurement(previous_measurement=None):
+def get_live_measurement(previous_measurement=None,processing = True):
     delegate = ScanDelegate()
     scanner = Scanner().withDelegate(delegate)
 
@@ -42,19 +42,24 @@ def get_live_measurement(previous_measurement=None):
         devices = scanner.scan(const.BEACON_WINDOW /
                                const.BEACON_SAMPLES_PER_WINDOW)
 
-    final_measurement = {address: (np.mean(readings), 0) for address,
-                                                             readings in delegate.entries.items() if
-                         address in const.BEACON_MAC_ADDRESSES}
+    if processing:
+        final_measurement = {address: (np.mean(readings), 0) for address,
+                            readings in delegate.entries.items() if
+                            address in const.BEACON_MAC_ADDRESSES}
 
-    if previous_measurement is not None:
-        for beacon, reading in final_measurement.items():
-            if beacon in previous_measurement.keys():
-                # kalman filter on rssi values
-                rssi = reading[0]
-                previous_rssi, previous_covariance = previous_measurement[beacon]
-                filtered_rssi, next_covariance = kalman_block(
-                    previous_rssi, previous_covariance, rssi, A=1, H=1, Q=1.6, R=6)
-                final_measurement[beacon] = (round(filtered_rssi[0],3), next_covariance)
+        if previous_measurement is not None:
+            for beacon, reading in final_measurement.items():
+                if beacon in previous_measurement.keys():
+                    # kalman filter on rssi values
+                    rssi = reading[0]
+                    previous_rssi, previous_covariance = previous_measurement[beacon]
+                    filtered_rssi, next_covariance = kalman_block(
+                        previous_rssi, previous_covariance, rssi, A=1, H=1, Q=1.6, R=6)
+                    final_measurement[beacon] = (
+                        round(filtered_rssi[0], 3), next_covariance)
+
+    else:
+        final_measurement = {address: readings for address, readings in delegate.entries.items() if address in const.BEACON_MAC_ADDRESSES}
 
     return final_measurement
 
@@ -67,7 +72,8 @@ def get_training_measurement(beacons_addresses):
         for i in range(const.BEACON_SAMPLES_PER_WINDOW):
             devices = scanner.scan(0.1)
 
-    measurement_general = {address: readings for address, readings in delegate.entries.items() if address in beacons_addresses}
+    measurement_general = {address: readings for address,
+                           readings in delegate.entries.items() if address in beacons_addresses}
 
     return measurement_general
 
@@ -97,7 +103,7 @@ def collect_and_write_timed_measurement(beacon_name, time, filepath):
     fh.write_timed_measurement(filepath, readings)
 
 
-def process_training_data(training_data,type = const.MeasurementProcess.MEDIAN):
+def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN):
     """processes windowed training data"""
     processed_training_data = {}
     for beacon, beacon_data in training_data.items():
@@ -107,7 +113,7 @@ def process_training_data(training_data,type = const.MeasurementProcess.MEDIAN):
             elif type is const.MeasurementProcess.ALL:
                 rssi_values = window_data
             elif type is const.MeasurementProcess.QUANTILE:
-                rssi_values = np.quantile(window_data,[0.25,0.5,0.75])
+                rssi_values = np.quantile(window_data, [0.25, 0.5, 0.75])
             elif type is const.MeasurementProcess.MEDIAN:
                 rssi_values = [np.median(window_data)]
             else:
@@ -124,10 +130,29 @@ def process_training_data(training_data,type = const.MeasurementProcess.MEDIAN):
     return processed_training_data
 
 
+def process_evaluation_data(evaluation_data, type=const.MeasurementProcess.MEDIAN):
+    """processes windowed evaluation data"""
+    processed_evaluation_data = []
+    for position, beacon_pairs in evaluation_data:
+        processed_beacon_pairs = {}
+        for beacon_address, window_data in beacon_pairs.items():
+            if type is const.MeasurementProcess.MEAN:
+                rssi_value = np.mean(window_data)
+            elif type is const.MeasurementProcess.MEDIAN:
+                rssi_value = np.median(window_data)
+            else:
+                raise ValueError(f"This value {type} has not been implemented")
+
+            processed_beacon_pairs[beacon_address] = rssi_value
+        processed_evaluation_data.append([position,processed_beacon_pairs])
+
+    return processed_evaluation_data
+
+
 def collect_evaluation_data():
     evaluation_data = []
     print("Collecting evaluation data: \n")
-    
+
     while True:
         x = input("Enter current x coordinate: ")
         y = input("Enter current y coordinate: ")
@@ -137,13 +162,10 @@ def collect_evaluation_data():
         print(f"Computing rssi vector for {position} :")
         previous_measurement = None
         for i in range(10):
-            previous_measurement = get_live_measurement(previous_measurement)
-
-            rssi_measurement_values = {beacon: reading[0] for beacon, reading in previous_measurement.items()}
-            
-            evaluation_data.append([position, rssi_measurement_values])
+            previous_measurement = get_live_measurement(previous_measurement,processing=False)
 
 
+            evaluation_data.append([position, previous_measurement])
 
         loop_continue = input(
             "Type stop if you have finished collecting evaluation data: ")
@@ -152,18 +174,17 @@ def collect_evaluation_data():
 
     return evaluation_data
 
+
 def collect_training_data():
     training_data = {}
-
 
     beacon_positions = {}
     for beacon in const.BEACON_MAC_ADDRESSES:
         using = input(f"Enter true if using {beacon}: ")
         if using.lower() == "true":
-            x = input(f"Enter current x coordinate for {beacon}: " )
-            y = input(f"Enter current y coordinate for {beacon}: " )
-            beacon_positions[beacon] = np.array([x,y])
-
+            x = input(f"Enter current x coordinate for {beacon}: ")
+            y = input(f"Enter current y coordinate for {beacon}: ")
+            beacon_positions[beacon] = np.array([x, y])
 
     while True:
         x = input("Enter current x coordinate: ")
@@ -275,8 +296,8 @@ def filter_list(array, start_mean=None, previous_var=1):
 def main():
     #beacon_positions, data = collect_training_data()
     data = collect_evaluation_data()
-    evaluation_data_filepath = Path("data/evaluation_intel.txt")
-    fh.write_evaluation_data_to_file(data,evaluation_data_filepath)
+    evaluation_data_filepath = Path("data/evaluation_test.txt")
+    fh.write_evaluation_data_to_file(data, evaluation_data_filepath)
 
 
 if __name__ == "__main__":

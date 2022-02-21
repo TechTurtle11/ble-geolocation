@@ -159,8 +159,8 @@ def load_evaluation_data(filepath: Path):
             beacon_rssi_pair_strings = measurements.split(";")
             beacon_rssi_pairs = {}
             for pair_string in beacon_rssi_pair_strings:
-                beacon, rssi = pair_string.split(",")
-                beacon_rssi_pairs[beacon] = float(rssi)
+                beacon, rssi_values = pair_string.split(",")
+                beacon_rssi_pairs[beacon] = [float(rssi) for rssi in rssi_values.split("|")]
 
             evaluation_data.append([position,beacon_rssi_pairs])
 
@@ -187,8 +187,12 @@ def write_evaluation_data_to_file(evaluation_data, filepath: Path, mode="w"):
         lines = []
 
         for position, data in evaluation_data:
-            
-            beacon_rssi_string = ";".join([f"{beacon},{rssi}" for beacon,rssi in data.items()])
+            beacon_rssi_strings = []
+            for beacon,rssi_values in data.items():
+                rssi_string = "|".join([str(rssi) for rssi in rssi_values])
+                beacon_rssi_strings.append(f"{beacon},{rssi_string}")
+
+            beacon_rssi_string = ";".join(beacon_rssi_strings)
         
             lines.append(
                     f"{position[0]},{position[1]}&{beacon_rssi_string}\n")
@@ -211,22 +215,3 @@ def write_timed_measurement(filepath, readings):
         csvWriter = csv.writer(csv_file, delimiter=',')
         csvWriter.writerows(readings)
 
-
-def main():
-    old_evaluation_data_filepath = Path("data/old_evaluation_intel.txt")
-    old_evaluation_data = load_old_evaluation_data(old_evaluation_data_filepath)
-    print(old_evaluation_data)
-    evaluation_data = []
-    for i in range(len(list(old_evaluation_data.values())[0])):
-        postition = list(old_evaluation_data.values())[0][i,1:]
-
-        measurement = {beacon:data_array[i,0] for beacon, data_array in old_evaluation_data.items()}
-
-        evaluation_data.append([postition,measurement])
-
-    print(measurement)
-    new_evaluation_data_filepath = Path("data/evaluation_intel.txt")
-    write_evaluation_data_to_file(evaluation_data, new_evaluation_data_filepath)
-
-if __name__ == "__main__":
-    main()

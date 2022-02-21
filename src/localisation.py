@@ -9,7 +9,7 @@ import general_helper as gh
 from beacon import create_beacons
 from constants import MapAttribute, Prior
 from map import Map
-from measurement import get_live_measurement, process_training_data
+from measurement import get_live_measurement, process_evaluation_data, process_training_data
 from models import KNN, WKNN, GaussianKNNModel, GaussianProcessModel, PropagationModel
 from plotting import plot_map_attribute, produce_average_localisation_distance_plot, produce_localisation_distance_plot
 
@@ -53,6 +53,7 @@ def run_localisation_on_file(evaluation_data_filepath,model):
 
 
     evaluation_data = fh.load_evaluation_data(evaluation_data_filepath)
+    evaluation_data = process_evaluation_data(evaluation_data)
 
     position_predictions = []
     for position,measurement in evaluation_data:
@@ -63,18 +64,17 @@ def run_localisation_on_file(evaluation_data_filepath,model):
 
 
 def run_localisation_comparison(training_data_filepath, evaluation_data_filepath):
-
-
     models = {}
+    
     models["Gaussian"] = GaussianProcessModel(training_data_filepath,prior=Prior.UNIFORM,starting_point=[-3,-3],ending_point=[10,17],cell_size=1)
     models["KNN"] = KNN(training_data_filepath,)
     models["WKNN"] = WKNN(training_data_filepath,)
     models["GaussianKNN"] = GaussianKNNModel(training_data_filepath,prior=Prior.UNIFORM,starting_point=[-3,-3],ending_point=[10,17],cell_size=1)
     models["Propagation"] = PropagationModel(training_data_filepath,2)
 
-    print("Created models")
 
     predictions = {name: run_localisation_on_file(evaluation_data_filepath,model) for name,model in models.items()}
+    predictions = dict(sorted(predictions.items(), key = lambda x:x[0]))
 
 
     #produce_localisation_distance_plot(predictions)
@@ -137,7 +137,7 @@ def run_localisation_iterations(training_data, beacon_locations, iterations, pri
 
 
 def main():
-    training_data_filepath = Path("data/intel_indoor_training_3_edited.txt")
+    training_data_filepath = Path("data/intel_indoor_training_3_original.txt")
     position_prediction_filepath = Path("data/predictions/test1.txt")
     evaluation_data_filepath = Path("data/evaluation_intel.txt")   
 
