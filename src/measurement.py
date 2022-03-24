@@ -7,6 +7,7 @@ from bluepy.btle import Scanner, DefaultDelegate
 
 import constants as const
 import file_helper as fh
+from filtering import KalmanFilter
 import general_helper as gh
 
 logging.basicConfig(filename='logs/measurement.log', level=logging.DEBUG)
@@ -34,7 +35,7 @@ class ScanDelegate(DefaultDelegate):
             self.entries[dev.addr].append(dev.rssi)
 
 
-def get_live_measurement(previous_measurement=None,processing = True):
+def get_live_measurement(previous_measurement=None,processing = True,measurement_process = const.MeasurementProcess.MEDIAN):
     delegate = ScanDelegate()
     scanner = Scanner().withDelegate(delegate)
 
@@ -42,24 +43,34 @@ def get_live_measurement(previous_measurement=None,processing = True):
         devices = scanner.scan(const.BEACON_WINDOW /
                                const.BEACON_SAMPLES_PER_WINDOW)
 
-    if processing:
-        final_measurement = {address: (np.mean(readings), 0) for address,
-                            readings in delegate.entries.items() if
-                            address in const.BEACON_MAC_ADDRESSES}
 
-        if previous_measurement is not None:
-            for beacon, reading in final_measurement.items():
+    raw_measurement = {address: readings for address, readings in delegate.entries.items() if address in const.BEACON_MAC_ADDRESSES}
+
+    if processing:
+        processing_function = lambda v : v
+        if measurement_process is const.MeasurementProcess.MEAN:
+            processing_function = np.mean
+        elif measurement_process is const.MeasurementProcess.MEDIAN:
+            processing_function = np.median
+        else:
+            raise ValueError(f"This value {measurement_process} has not been implemented")
+
+
+        if previous_measurement is None:
+            final_measurement = {address: (processing_function(readings), KalmanFilter(processing_function(readings))) for address,
+                                readings in raw_measurement.items()}
+
+        else:
+            final_measurement = {}
+            for beacon, readings in raw_measurement.items():
                 if beacon in previous_measurement.keys():
-                    # kalman filter on rssi values
-                    rssi = reading[0]
-                    previous_rssi, previous_covariance = previous_measurement[beacon]
-                    filtered_rssi, next_covariance = kalman_block(
-                        previous_rssi, previous_covariance, rssi, A=1, H=1, Q=1.6, R=6)
+                    _, filter = previous_measurement[beacon]
+                    filtered_rssi = filter.predict_and_update(processing_function(readings))
                     final_measurement[beacon] = (
-                        round(filtered_rssi[0], 3), next_covariance)
+                        round(filtered_rssi, 3), filter)
 
     else:
-        final_measurement = {address: readings for address, readings in delegate.entries.items() if address in const.BEACON_MAC_ADDRESSES}
+        final_measurement = raw_measurement
 
     return final_measurement
 
@@ -106,6 +117,8 @@ def collect_and_write_timed_measurement(beacon_name, time, filepath):
 def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN):
     """processes windowed training data"""
     processed_training_data = {}
+    position_beacon_map = {} # holds which beacons are used for each position
+    hashed_position_map = {}
     for beacon, beacon_data in training_data.items():
         for window_data, position in beacon_data:
             if type is const.MeasurementProcess.MEAN:
@@ -126,6 +139,24 @@ def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN):
                 else:
                     processed_training_data[beacon] = np.append(
                         processed_training_data[beacon], [row], axis=0)
+
+            h = gh.hash_2D_coordinate(*position)
+            hashed_position_map[h] = position
+            if h not in position_beacon_map.keys():
+                position_beacon_map[h] = []
+            position_beacon_map[h].append(beacon)
+
+    """
+    #sets 100 to be the unobserved beacon_value
+    for h, observed_beacons in position_beacon_map.items():
+        position = hashed_position_map[h]
+        missing_beacons = [beacon for beacon in training_data.keys() if not beacon in observed_beacons]
+        for beacon in missing_beacons:
+            row = np.array([float(-100), *position])
+            processed_training_data[beacon] = np.append(
+                        processed_training_data[beacon], [row], axis=0)"""
+
+
 
     return processed_training_data
 
@@ -154,23 +185,26 @@ def collect_evaluation_data():
     print("Collecting evaluation data: \n")
 
     while True:
-        x = input("Enter current x coordinate: ")
-        y = input("Enter current y coordinate: ")
-        position = np.array([x, y])
-        h = gh.hash_2D_coordinate(position)
+        try:
+            x = input("Enter current x coordinate: ")
+            y = input("Enter current y coordinate: ")
+            position = np.array([float(x), float(y)])
+            h = gh.hash_2D_coordinate(*position)
 
-        print(f"Computing rssi vector for {position} :")
-        previous_measurement = None
-        for i in range(10):
-            previous_measurement = get_live_measurement(previous_measurement,processing=False)
+            print(f"Computing rssi vector for {position} :")
+            previous_measurement = None
+            for i in range(10):
+                previous_measurement = get_live_measurement(previous_measurement,processing=False)
 
 
-            evaluation_data.append([position, previous_measurement])
+                evaluation_data.append([position, previous_measurement])
 
-        loop_continue = input(
-            "Type stop if you have finished collecting evaluation data: ")
-        if "stop" in loop_continue.lower():
-            break
+            loop_continue = input(
+                "Type stop if you have finished collecting evaluation data: ")
+            if "stop" in loop_continue.lower():
+                break
+        except ValueError:
+            print("please retry with valid coords")
 
     return evaluation_data
 
@@ -209,94 +243,18 @@ def collect_training_data():
     return beacon_positions, training_data
 
 
-def kalman_block(previous_mean, previous_var, new_observation, A, H, Q, R):
-    """
-    Prediction and update in Kalman filter
 
-    Parameters:
-    previous_mean: previous mean state
-    previous_var : previous variance state
-    new_observation: current observation
-    A: The transition constant
-    H: measurement constant
-    Q: The covariance constant
-    R: measurement covariance constant
-
-    Returns:
-    new_mean: mean state prediction
-    new_var: variance state prediction
-    """
-
-    # https://arxiv.org/abs/1204.0375v1 for reference
-
-    x_mean = A * previous_mean + np.random.normal(0, Q, 1)
-    P_mean = A * previous_var * A + Q
-
-    K = P_mean * H * (1 / (H * P_mean * H + R))
-    new_mean = x_mean + K * (new_observation - H * x_mean)
-    new_var = (1 - K * H) * P_mean
-
-    return new_mean, new_var
-
-
-def cheap_filter_list(array, start_mean=None):
-    i = 0
-    if start_mean is None:
-        previous_observation = array[0]
-        i += 1
-    else:
-        previous_observation = start_mean
-
-    filtered_means = np.array([previous_observation])
-
-    while i < len(array):
-        filtered_rssi = array[i] * 0.25 + previous_observation * 0.75
-        filtered_means = np.append(filtered_means, [filtered_rssi])
-
-        previous_observation = filtered_rssi
-        i += 1
-
-    return filtered_means
-
-
-def filter_list(array, start_mean=None, previous_var=1):
-    """
-    filters list using a kalman filter
-    parameters are setup for rssi values
-
-    Parameters:
-    array: the array to be filtered
-    start_mean: the start start if wanted to adjust
-    start_var: the start variance if wanted to adjust
-
-    Returns:
-    filtered_means: filtered array
-    """
-    i = 0
-    if start_mean is None:
-        previous_observation = array[0]
-        i += 1
-    else:
-        previous_observation = start_mean
-
-    filtered_means = np.array([previous_observation])
-    previous_var = 0
-    while i < len(array):
-        filtered_rssi, next_covariance = kalman_block(
-            previous_observation, previous_var, array[i], A=1, H=1, Q=0.008, R=1)
-        filtered_means = np.append(filtered_means, [filtered_rssi])
-
-        previous_observation = filtered_rssi
-        previous_var = next_covariance
-        i += 1
-
-    return filtered_means
 
 
 def main():
-    #beacon_positions, data = collect_training_data()
+
+
+    beacon_positions, data = collect_training_data()
+    training_data_filepath = Path("data/training_outside.txt")
+    fh.write_training_data_to_file(beacon_positions,data,training_data_filepath)
+
     data = collect_evaluation_data()
-    evaluation_data_filepath = Path("data/evaluation_test.txt")
+    evaluation_data_filepath = Path("data/evaluation_outside.txt")
     fh.write_evaluation_data_to_file(data, evaluation_data_filepath)
 
 

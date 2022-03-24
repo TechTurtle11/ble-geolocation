@@ -93,12 +93,11 @@ def load_training_data(filepath: Path, windows=False):
                 rssi_strings = rssi_string.split(";")
                 if windows:
                     rssi_values = np.array([float(rssi) for rssi in rssi_strings])
-                    row = [rssi_values, position]
+                    row = np.array([rssi_values, position],dtype=object)
                     if not beacon in training_data.keys():
-                        training_data[beacon] = np.array([row])
+                        training_data[beacon] = [row]
                     else:
-                        training_data[beacon] = np.append(
-                            training_data[beacon], [row], axis=0)
+                        training_data[beacon].append(row)
                 else:
                     for rssi in rssi_strings:
                         row = np.array([float(rssi), *position])

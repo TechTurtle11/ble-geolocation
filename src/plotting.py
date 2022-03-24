@@ -6,21 +6,22 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import file_helper as fh
+from filtering import BasicFilter, KalmanFilter
 import measurement as measure
 from beacon import create_beacons
 from constants import MapAttribute
 from map import Map
 
 
-def plot_beacon_map_rssi(beacon_name, beacon, starting_point=[-10, -10], ending_point=[20, 20], offset=False):
+def plot_beacon_map_rssi(beacon_name, beacon, starting_point, ending_point, offset=False):
     square_start = min(starting_point)
     square_end = max(ending_point)
 
     x_samples = np.arange(square_start, square_end, 1)
     y_samples = np.arange(square_start, square_end, 1)[::-1]
 
-    predictions = [[beacon.predict_rssi(
-        np.array([x, y]), offset=offset)[0] for x in x_samples] for y in y_samples]
+    predictions = np.array([np.array([beacon.predict_rssi(
+        [np.array([x, y])], offset=offset)[0] for x in x_samples]) for y in y_samples]).reshape((square_end,square_end))
 
     predictions = np.rint(predictions).astype(int)
 
@@ -167,12 +168,16 @@ def plot_position_prediction(position, predicted_cells, beacons):
 
 
 def plot_filtered_rssi_comparison(measurement, title, round=False):
+    kalman_filter = KalmanFilter(measurement[0])
+    kalman_filtered = kalman_filter.filter_list(measurement,used_start_as_mean=True)
+    basic_filter = BasicFilter(measurement[0])
+    basic_filtered = basic_filter.filter_list(measurement,used_start_as_mean=True)
     if round:
-        data_set = {"non-filtered": measurement, "filtered": np.round(measure.filter_list(
-            measurement)), "filtered_cheap": np.round(measure.cheap_filter_list(measurement))}
+        data_set = {"non-filtered": measurement, "filtered": np.round(kalman_filtered)
+        , "filtered_cheap": np.round(basic_filtered)}
     else:
-        data_set = {"non-filtered": measurement, "filtered": measure.filter_list(
-            measurement), "filtered_cheap": measure.cheap_filter_list(measurement)}
+        data_set = {"non-filtered": measurement, "filtered": kalman_filtered, "filtered_cheap": basic_filtered}
+
     plot_rssi_readings_over_time(data_set, title)
 
 
@@ -196,9 +201,9 @@ def produce_measurement_plots(measurement_filepath, round=False):
 
 
 def produce_beacon_map_plots(training_data_filepath, starting_point, ending_point):
-    beacon_locations, training_data = fh.load_training_data(training_data_filepath)
-    # training_data = measure.process_training_data(training_data)
-    beacons = create_beacons(beacon_locations, training_data)
+    beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
+    training_data = measure.process_training_data(training_data)
+    beacons = create_beacons(beacon_positions, training_data)
 
     for address, beacon in beacons.items():
         plot_rssi_distance(beacon, beacon.position)
@@ -214,6 +219,9 @@ def produce_rotation_plot():
         f"data/test_rotation_{angle}_measurement.csv") for angle in [0, 90, 180, 270, ]}
     measurements = {angle: fh.read_measurement_from_file(
         filepath) for angle, filepath in measurement_filepaths.items()}
+
+    kalman_filter = KalmanFilter(measurement[0])
+    kalman_filtered = kalman_filter.filter_list(measurement,used_start_as_mean=True)
     measurements = {angle: measure.filter_list(np.array(list(chain.from_iterable(
         measurement)))) for angle, measurement in measurements.items()}
     plot_rssi_readings_over_time(measurements, "RSSI by angle of rotation")
@@ -226,7 +234,6 @@ def produce_localisation_distance_plot(algorithm_predictions):
 
     fig, ax = plt.subplots()
 
-    
 
     labels = {str(actual) for actual,_ in list(algorithm_predictions.values())[0]}
     filtered_distances = {}
@@ -239,17 +246,18 @@ def produce_localisation_distance_plot(algorithm_predictions):
             filtered_distances[algorithm].append(sum(filtered_label_distances)/ len(filtered_label_distances))
 
 
+    filtered_distances = dict(sorted(filtered_distances.items(),key=lambda d: d[1]))
+
     ax.set_xlabel("Positions ")
     ax.set_ylabel("Distance From actual point")
     ax.set_title(f"Barchart to demonstrate algorithm prediction accuracy for certain points") 
     
 
-    print(labels)
     br = np.arange(len(labels))
-    bar_width = 0.2
+    bar_width = 0.175
     plt.xticks(ticks = br+bar_width, labels = list(labels))
 
-    for i,algorithm in enumerate(distances.keys()):
+    for i,algorithm in enumerate(filtered_distances.keys()):
         ax.bar(br+bar_width*i,filtered_distances[algorithm],label = algorithm,width=bar_width)
 
     ax.legend()
@@ -260,10 +268,14 @@ def produce_localisation_distance_plot(algorithm_predictions):
 def produce_average_localisation_distance_plot(algorithm_predictions):
     distances = {}
     std = {}
+    medians = {}
     for algorithm,predictions in algorithm_predictions.items():
         dist = [np.linalg.norm(actual - prediction) for actual, prediction in predictions]
         distances[algorithm] = np.mean(dist)
+        medians[algorithm] = np.median(dist)
         std[algorithm] = np.std(dist)
+
+    distances = dict(sorted(distances.items(),key = lambda d: d[1]))
 
     fig, ax = plt.subplots()
 
@@ -278,24 +290,37 @@ def produce_average_localisation_distance_plot(algorithm_predictions):
     ax.grid(which='minor', color='#EEEEEE', linestyle=':', linewidth=0.5,axis="y",zorder=0)
     ax.minorticks_on()
 
+    plt.tick_params(
+    axis='x',          # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    bottom=False,      # ticks along the bottom edge are off
+    top=False,         # ticks along the top edge are off
+    labelbottom=False) # labels along the bottom edge are off
+
+    bars = []
     for i,algorithm in enumerate(distances.keys()):
-        ax.bar(bar_width*i,distances[algorithm],yerr=std[algorithm],label = algorithm,width=bar_width,zorder=3)
+        bar = ax.bar(bar_width*i,distances[algorithm],yerr=std[algorithm],label = algorithm,width=bar_width,zorder=3)
+        for i,rect in enumerate(bar):
+            height = std[algorithm] + rect.get_height()
+            plt.text(rect.get_x() + rect.get_width() / 2.0, height, f'{distances[algorithm]:.2f}', ha='center', va='bottom',zorder=4)
+
+
 
     ax.legend()
     plt.show()
 
 
 def main():
-    produce_position_prediction_plots(Path("data/predictions/test1.txt"))
+    #produce_position_prediction_plots(Path("data/predictions/test1.txt"))
 
     # produce_rotation_plot()
     # input()
     # measurement_filepath = Path("data/test_measurement.csv")
     # produce_measurement_plots(measurement_filepath,round=True)
     # input()
-    training_data_filepath = Path("data/intel_indoor_training_3_edited.txt")
-    starting_point = [-3, -4]
-    ending_point = [10, 17]
+    training_data_filepath = Path("data/training_outside.txt")
+    starting_point = [0,0]
+    ending_point = [30, 30]
     produce_beacon_map_plots(training_data_filepath,
                              starting_point, ending_point)
 

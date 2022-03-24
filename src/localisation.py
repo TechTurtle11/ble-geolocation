@@ -5,6 +5,7 @@ import cProfile
 import numpy as np
 
 import file_helper as fh
+from filtering import BasicFilter, KalmanFilter
 import general_helper as gh
 from beacon import create_beacons
 from constants import MapAttribute, Prior
@@ -49,14 +50,30 @@ def run_iteration(beacons, area_map, previous_measurement=None, previous_cell=No
     return sorted_cells[0], current_measurement
 
 
-def run_localisation_on_file(evaluation_data_filepath,model):
+def run_localisation_on_file(evaluation_data_filepath,model,filtering=False):
 
 
     evaluation_data = fh.load_evaluation_data(evaluation_data_filepath)
     evaluation_data = process_evaluation_data(evaluation_data)
 
+    position_filter_map = {}
+
     position_predictions = []
     for position,measurement in evaluation_data:
+            if filtering:
+                h = gh.hash_2D_coordinate(*position)
+                if h in position_filter_map.keys():
+                    filter_map = position_filter_map[h]
+                else:
+                    filter_map = {}
+                
+                for beacon,rssi_value in measurement.items():
+                    if beacon not in filter_map.keys():
+                        filter_map[beacon] = KalmanFilter(rssi_value)
+                    else:
+                        measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)
+                position_filter_map[h] = filter_map         
+
             predicted_position = model.predict_position(measurement)
             position_predictions.append((position,predicted_position))
 
@@ -77,7 +94,7 @@ def run_localisation_comparison(training_data_filepath, evaluation_data_filepath
     predictions = dict(sorted(predictions.items(), key = lambda x:x[0]))
 
 
-    #produce_localisation_distance_plot(predictions)
+    produce_localisation_distance_plot(predictions)
     produce_average_localisation_distance_plot(predictions)
 
 
@@ -137,9 +154,9 @@ def run_localisation_iterations(training_data, beacon_locations, iterations, pri
 
 
 def main():
-    training_data_filepath = Path("data/intel_indoor_training_3_original.txt")
+    training_data_filepath = Path("data/training_outside.txt")
     position_prediction_filepath = Path("data/predictions/test1.txt")
-    evaluation_data_filepath = Path("data/evaluation_intel.txt")   
+    evaluation_data_filepath = Path("data/evaluation_outside.txt")   
 
     run_localisation_comparison(training_data_filepath,evaluation_data_filepath)
 
@@ -147,5 +164,5 @@ def main():
 
 
 if __name__ == "__main__":
-    #print(cProfile.run("main ()"))
+    #cProfile.run("main ()")
     main()

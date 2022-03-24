@@ -19,17 +19,20 @@ class BaseModel(ABC):
         pass
 
 
-
 class GaussianProcessModel(BaseModel):
 
     def __init__(self, training_data_filepath: Path, prior,starting_point = [-3,-3],ending_point = [10,17],cell_size=1):
-        beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
-        training_data = process_training_data(training_data)
-        self.beacons = create_beacons(beacon_positions, training_data)
+        self.beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
+        training_data = process_training_data(training_data,type=const.MeasurementProcess.MEDIAN)
+        self.beacons = create_beacons(self.beacon_positions, training_data)
         self.area_map = Map(starting_point, ending_point, cell_size)
         self.prior = prior
 
     def predict_position(self, rssi_measurement,previous_cell = None):
+        """
+        for beacon in self.beacon_positions.keys():
+            if beacon not in rssi_measurement.keys():
+                rssi_measurement[beacon] = -100"""
 
         calculated_cells = self.area_map.calculate_cell_probabilities(rssi_measurement,self.beacons,previous_cell,self.prior)
 
@@ -44,6 +47,11 @@ class GaussianKNNModel(GaussianProcessModel):
 
 
     def predict_position(self, rssi_measurement,previous_cell = None):
+
+        """
+        for beacon in self.beacon_positions.keys():
+            if beacon not in rssi_measurement.keys():
+                rssi_measurement[beacon] = -100"""
 
         calculated_cells = self.area_map.calculate_cell_probabilities(rssi_measurement,self.beacons,previous_cell,self.prior)
 
@@ -66,10 +74,15 @@ class WKNN(BaseModel):
 
     def __init__(self, training_data_filepath:Path):
         self.beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
-        self.training_data = process_training_data(training_data,type = const.MeasurementProcess.MEAN)
+        self.training_data = process_training_data(training_data,type = const.MeasurementProcess.MEDIAN)
 
 
     def predict_position(self,rssi_measurement, k=3):
+        """
+        for beacon in self.beacon_positions.keys():
+            if beacon not in rssi_measurement.keys():
+                rssi_measurement[beacon] = -100"""
+
 
         distances = {} 
         for beacon, data in self.training_data.items():
@@ -77,12 +90,14 @@ class WKNN(BaseModel):
             for line in data:
                 d_hash = gh.hash_2D_coordinate(*line[1:])
                 if not d_hash in distances.keys():
-                    distances[d_hash] = [np.array(line[1:]),0]
-                distances[d_hash][1] +=  (np.square(line[0] - rssi_measurement[beacon]))**2
+                    distances[d_hash] = [np.array(line[1:]),0,1*10**-6]
+                if beacon in rssi_measurement.keys():
+                    distances[d_hash][1] +=  (np.square(line[0] - rssi_measurement[beacon]))**2
+                    distances[d_hash][2] += 1
 
 
         for h, data in distances.items():
-            distances[h][1] = np.sqrt(data[1]/len(self.beacon_positions))
+            distances[h][1] = np.sqrt(data[1]/distances[h][2])
 
 
         sorted_points = sorted(list(distances.values()), key = lambda p : p[1])
@@ -90,9 +105,9 @@ class WKNN(BaseModel):
 
         position = np.zeros(2)
 
-        distance_sum = sum([distance for _, distance in first_k])
-        for point, distance in first_k:
-            position += (distance / distance_sum) * point
+        distance_sum = sum([distance for _, distance, _ in first_k])
+        for point, distance, _ in first_k:
+            position += (distance / (distance_sum+1*10**-6)) * point
 
         return position
 
@@ -138,7 +153,7 @@ class PropagationModel(BaseModel):
 
     def predict_position(self, rssi_measurement):
 
-        distance_sum = 0
+        distance_sum = 1*10**-6
         beacon_distances = {}
         for beacon, measurement in rssi_measurement.items():
             distance = self.distance_functions[beacon](measurement)
@@ -148,8 +163,8 @@ class PropagationModel(BaseModel):
         
         position = np.zeros(2)
 
-        for beacon,point in self.beacon_positions.items():
-            position += (beacon_distances[beacon] / distance_sum) * point
+        for beacon,distance in beacon_distances.items():
+            position += (distance/ distance_sum) * self.beacon_positions[beacon]
 
         return position
 
