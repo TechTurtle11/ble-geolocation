@@ -169,5 +169,26 @@ class PropagationModel(BaseModel):
         return position
 
         
+class ProximityModel(BaseModel):
+    """
+    Implementation of a proximity model:
+    The proximity algorithm selects the beacon with the strongest received signal at
+    a given time and co-locates the user with it.
+    """
+
+    def __init__(self, training_data_filepath: Path) -> None:
+        self.beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
+
+
+    def predict_position(self, rssi_measurement):
+
+        max_beacon = None
+        max_rssi = -np.inf
+        for beacon, measurement in rssi_measurement.items():
+            if measurement > max_rssi:
+                max_beacon = beacon
+                max_rssi = measurement
+
+        return self.beacon_positions[max_beacon]
 
 

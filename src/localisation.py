@@ -11,7 +11,7 @@ from beacon import create_beacons
 from constants import MapAttribute, Prior
 from map import Map
 from measurement import get_live_measurement, process_evaluation_data, process_training_data
-from models import KNN, WKNN, GaussianKNNModel, GaussianProcessModel, PropagationModel
+from models import KNN, WKNN, GaussianKNNModel, GaussianProcessModel, PropagationModel, ProximityModel
 from plotting import plot_map_attribute, produce_average_localisation_distance_plot, produce_localisation_distance_plot
 
 logging.basicConfig(filename='logs/localisation.log', level=logging.ERROR)
@@ -50,7 +50,7 @@ def run_iteration(beacons, area_map, previous_measurement=None, previous_cell=No
     return sorted_cells[0], current_measurement
 
 
-def run_localisation_on_file(evaluation_data_filepath,model,filtering=False):
+def run_localisation_on_file(evaluation_data_filepath,model,filtering=True):
 
 
     evaluation_data = fh.load_evaluation_data(evaluation_data_filepath)
@@ -83,11 +83,13 @@ def run_localisation_on_file(evaluation_data_filepath,model,filtering=False):
 def run_localisation_comparison(training_data_filepath, evaluation_data_filepath):
     models = {}
     
-    models["Gaussian"] = GaussianProcessModel(training_data_filepath,prior=Prior.UNIFORM,starting_point=[-3,-3],ending_point=[10,17],cell_size=1)
+    models["Gaussian"] = GaussianProcessModel(training_data_filepath,prior=Prior.UNIFORM,cell_size=1)
     models["KNN"] = KNN(training_data_filepath,)
     models["WKNN"] = WKNN(training_data_filepath,)
-    models["GaussianKNN"] = GaussianKNNModel(training_data_filepath,prior=Prior.UNIFORM,starting_point=[-3,-3],ending_point=[10,17],cell_size=1)
+    models["GaussianKNN"] = GaussianKNNModel(training_data_filepath,prior=Prior.UNIFORM,cell_size=1)
     models["Propagation"] = PropagationModel(training_data_filepath,2)
+    models["Proximity"] = ProximityModel(training_data_filepath)
+
 
 
     predictions = {name: run_localisation_on_file(evaluation_data_filepath,model) for name,model in models.items()}
@@ -157,6 +159,12 @@ def main():
     training_data_filepath = Path("data/training_outside.txt")
     position_prediction_filepath = Path("data/predictions/test1.txt")
     evaluation_data_filepath = Path("data/evaluation_outside.txt")   
+
+    run_localisation_comparison(training_data_filepath,evaluation_data_filepath)
+
+    training_data_filepath = Path("data/training_inside.txt")
+    position_prediction_filepath = Path("data/predictions/test1.txt")
+    evaluation_data_filepath = Path("data/evaluation_inside.txt")   
 
     run_localisation_comparison(training_data_filepath,evaluation_data_filepath)
 
