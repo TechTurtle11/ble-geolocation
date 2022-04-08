@@ -1,5 +1,5 @@
+import random
 import numpy as np
-
 from constants import Prior
 
 
@@ -9,7 +9,7 @@ class Cell:
         self._center = center
         self._cell_length = cell_length
         self._probability = 0
-        self._covariance = 0
+        self._std = 0
 
     @property
     def corners(self):
@@ -35,25 +35,25 @@ class Cell:
         self._probability = prob
 
     @property
-    def covariance(self):
-        return self._covariance
+    def std(self):
+        return self._std
 
-    @covariance.setter
-    def covariance(self, cov):
-        self._covariance = cov
+    @std.setter
+    def std(self, std):
+        self._std = std
 
     def isNeighbor(self, cell):
         return np.linalg.norm(cell.center - self._center) <= np.sqrt(2 * self._cell_length)
 
     def __str__(self) -> str:
-        return f"Cell: Center:{self._center} Prob: {self._probability} Cov: {self._covariance}"
+        return f"Cell: Center:{self._center} Prob: {self._probability} Cov: {self._std}"
 
     def calculate_probabilty(self, measurements, beacons, previous_cell=None, prior=Prior.UNIFORM,
                              standard_deviation=1):
         distance = 0.
         position = self._center
         log_p = np.inf
-        self.covariance = 0
+        self.std = 0
 
         prior_condition = (prior is Prior.LOCAL and previous_cell is not None and previous_cell.isNeighbor(
             self)) or prior is Prior.UNIFORM
@@ -91,6 +91,7 @@ class Map():
         self._bottom_corner = np.array(bottom_corner)
         self._shape = np.array(shape)
 
+        self._previous_cell = None
         self._cell_size = cell_size
         self.cell_centers = np.empty((0, len(self._shape)))
 
@@ -111,7 +112,6 @@ class Map():
                     self.cell_centers = np.append(
                         self.cell_centers, np.array([center]), axis=0)
 
-
     def add_new_cells(self, new_cells):
         for cell in new_cells:
             self._cells.append(cell)
@@ -128,7 +128,18 @@ class Map():
     def get_cell_size(self):
         return self._cell_size
 
-    def calculate_cell_probabilities(self, measurements, beacons, previous_cell=None, prior=Prior.UNIFORM):
+    @property
+    def previous_cell(self):
+        return self._previous_cell
+
+    @previous_cell.setter 
+    def previous_cell(self, cell:Cell):
+        self._previous_cell = cell
+
+    def reset_map(self):
+        self._previous_cell = None
+
+    def calculate_cell_probabilities(self, measurements, beacons, prior=Prior.UNIFORM):
         standard_deviation = 2
 
         distance_sum = np.zeros(len(self.cell_centers))
@@ -136,18 +147,18 @@ class Map():
         beacons_used = {address: beacon for address,
                         beacon in beacons.items() if address in measurements.keys()}
         for address, beacon in beacons_used.items():
-            rssi_predictions, covariance_predictions = beacon.predict_rssi(
+            rssi_predictions, std_predictions = beacon.predict_rssi(
                 self.cell_centers)
             distance_sum += np.square(measurements[address] - rssi_predictions)
-            std_sum += covariance_predictions
+            std_sum += std_predictions
 
         distances = np.sqrt(distance_sum / len(beacons_used))
         log_p = np.exp2(distances) / (2 * np.exp2(standard_deviation))
 
         for i, cell in enumerate(self._cells):
-            prior_condition = (prior is Prior.LOCAL and previous_cell is not None and previous_cell.isNeighbor(
-                self)) or prior is Prior.UNIFORM
-            cell.probability = log_p[i] if prior_condition else np.inf
-            cell.covariance = std_sum[i]
+            prior_condition = (prior is Prior.LOCAL and self.previous_cell is not None and self.previous_cell.isNeighbor(
+                cell)) or random.randint(0,9) < 1 or prior is Prior.UNIFORM
+            cell.probability = log_p[i] if prior_condition else 1*10**-9
+            cell.std = std_sum[i]
 
         return self._cells

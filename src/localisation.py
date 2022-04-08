@@ -11,7 +11,6 @@ from beacon import create_beacons
 from constants import MapAttribute, Prior
 from map import Map
 from measurement import get_live_measurement, process_evaluation_data, process_training_data
-from models import KNN, WKNN, GaussianKNNModel, GaussianProcessModel, PropagationModel, ProximityModel
 from plotting import plot_map_attribute, produce_average_localisation_distance_plot, produce_localisation_distance_plot
 
 logging.basicConfig(filename='logs/localisation.log', level=logging.ERROR)
@@ -60,19 +59,21 @@ def run_localisation_on_file(evaluation_data_filepath,model,filtering=True):
 
     position_predictions = []
     for position,measurement in evaluation_data:
-            if filtering:
-                h = gh.hash_2D_coordinate(*position)
-                if h in position_filter_map.keys():
-                    filter_map = position_filter_map[h]
+            
+            h = gh.hash_2D_coordinate(*position)
+            if h in position_filter_map.keys():
+                filter_map = position_filter_map[h]
+            else:
+                filter_map = {}
+            
+            for beacon,rssi_value in measurement.items():
+                if beacon not in filter_map.keys():
+                    filter_map[beacon] = KalmanFilter(rssi_value)
                 else:
-                    filter_map = {}
-                
-                for beacon,rssi_value in measurement.items():
-                    if beacon not in filter_map.keys():
-                        filter_map[beacon] = KalmanFilter(rssi_value)
-                    else:
+                    if filtering:
                         measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)
-                position_filter_map[h] = filter_map         
+            position_filter_map[h] = filter_map         
+
 
             predicted_position = model.predict_position(measurement)
             position_predictions.append((position,predicted_position))
@@ -80,25 +81,37 @@ def run_localisation_on_file(evaluation_data_filepath,model,filtering=True):
     return position_predictions
 
 
-def run_localisation_comparison(training_data_filepath, evaluation_data_filepath):
-    models = {}
-    
-    models["Gaussian"] = GaussianProcessModel(training_data_filepath,prior=Prior.UNIFORM,cell_size=1)
-    models["KNN"] = KNN(training_data_filepath,)
-    models["WKNN"] = WKNN(training_data_filepath,)
-    models["GaussianKNN"] = GaussianKNNModel(training_data_filepath,prior=Prior.UNIFORM,cell_size=1)
-    models["Propagation"] = PropagationModel(training_data_filepath,2)
-    models["Proximity"] = ProximityModel(training_data_filepath)
+def run_convergence_localisation_on_file(evaluation_data_filepath,model,filtering=True):
+        evaluation_data = fh.load_evaluation_data(evaluation_data_filepath)
+        evaluation_data = process_evaluation_data(evaluation_data)
+
+        position_filter_map = {}
+        reset_map = False
+        position_predictions = []
+        for position,measurement in evaluation_data:
+                
+                h = gh.hash_2D_coordinate(*position)
+                if h in position_filter_map.keys():
+                    filter_map = position_filter_map[h]
+
+                else:
+                    filter_map = {}
+                    reset_map = True
+                
+                for beacon,rssi_value in measurement.items():
+                    if beacon not in filter_map.keys():
+                        filter_map[beacon] = KalmanFilter(rssi_value)
+                    else:
+                        if filtering:
+                            measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)
+                position_filter_map[h] = filter_map         
 
 
+                predicted_position = model.predict_convergent_position(measurement,reset_map)
+                reset_map = False
+                position_predictions.append((position,predicted_position))
 
-    predictions = {name: run_localisation_on_file(evaluation_data_filepath,model) for name,model in models.items()}
-    predictions = dict(sorted(predictions.items(), key = lambda x:x[0]))
-
-
-    produce_localisation_distance_plot(predictions)
-    produce_average_localisation_distance_plot(predictions)
-
+        return position_predictions
 
 
 def predict_positions(training_data_filepath, iterations, prior):
@@ -172,22 +185,3 @@ def add_beacon_to_map(predicted_position, training_data_filepath):
 
 
 
-def main():
-    training_data_filepath = Path("data/training_outside.txt")
-    position_prediction_filepath = Path("data/predictions/test1.txt")
-    evaluation_data_filepath = Path("data/evaluation_outside.txt")   
-
-    run_localisation_comparison(training_data_filepath,evaluation_data_filepath)
-
-    training_data_filepath = Path("data/training_inside.txt")
-    position_prediction_filepath = Path("data/predictions/test1.txt")
-    evaluation_data_filepath = Path("data/evaluation_inside.txt")   
-
-    run_localisation_comparison(training_data_filepath,evaluation_data_filepath)
-
-    #predict_and_write_positions(training_data_filepath, position_prediction_filepath, Prior.UNIFORM)
-
-
-if __name__ == "__main__":
-    #cProfile.run("main ()")
-    main()
