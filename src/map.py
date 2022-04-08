@@ -14,7 +14,8 @@ class Cell:
     @property
     def corners(self):
         offset = self._cell_length / 2
-        corner_vectors = np.array([[0, offset], [offset, 0], [0, -offset], [-offset, 0]])
+        corner_vectors = np.array(
+            [[0, offset], [offset, 0], [0, -offset], [-offset, 0]])
         return self._center + corner_vectors
 
     @property
@@ -61,7 +62,8 @@ class Cell:
             beacons_used = 0
             for address, measurement in measurements.items():
                 if address in beacons.keys():
-                    predicted_rssi,cell_cov = beacons[address].predict_rssi(position)
+                    predicted_rssi, cell_cov = beacons[address].predict_rssi(
+                        position)
                     distance += (measurement - predicted_rssi) ** 2
                     self.covariance += cell_cov[0]
                     beacons_used += 1
@@ -73,31 +75,50 @@ class Cell:
 
 class Map():
 
-    def __init__(self, starting_point=None, ending_point=None, cell_size=1) -> None:
+    def __init__(self, bottom_corner, shape, cell_size=1) -> None:
+        """
+        Arguments:
+        bottom_corner: n-dimensional array of the starting point ie [0,0] only supports 2/3 atm
+        shape: n-dimensional array representing the total map space ie (30,30)
+        cell_size: the size of each cell 
+        """
+
+        if len(bottom_corner) != len(shape):
+            raise ValueError(
+                f"Dimension mismatch: len(bottom_corner) ({len(bottom_corner)}) != len(shape) ({len(shape)})")
+
         self._cells = []
-        self._dimensions = (starting_point, ending_point)
+        self._bottom_corner = np.array(bottom_corner)
+        self._shape = np.array(shape)
+
         self._cell_size = cell_size
-        self.cell_centers = np.empty((0,2))
+        self.cell_centers = np.empty((0, len(self._shape)))
 
-        if starting_point is None:
-            starting_point = (0.5, 0.5)
+        starting_point = self._bottom_corner + cell_size/2
+        ending_point = self._bottom_corner + cell_size*self._shape
 
-
-
-        if ending_point is not None:
-            for i in np.arange(start=min(starting_point), stop=max(ending_point), step=self._cell_size):
-                for j in np.arange(start=max(ending_point), stop=min(starting_point), step=-self._cell_size):
+        for i in np.arange(starting_point[0], ending_point[0], step=self._cell_size):
+            for j in np.arange(ending_point[1], starting_point[1], step=-self._cell_size):
+                if len(self._shape) == 3:
+                    for k in np.arange(ending_point[2], starting_point[2], step=-self._cell_size):
+                        center = np.array([i, j])
+                        self._cells.append(Cell(center, self._cell_size))
+                        self.cell_centers = np.append(
+                            self.cell_centers, np.array([center]), axis=0)
+                else:
                     center = np.array([i, j])
                     self._cells.append(Cell(center, self._cell_size))
-                    self.cell_centers = np.append(self.cell_centers,np.array([center]),axis=0)
+                    self.cell_centers = np.append(
+                        self.cell_centers, np.array([center]), axis=0)
+
 
     def add_new_cells(self, new_cells):
         for cell in new_cells:
             self._cells.append(cell)
 
     @property
-    def get_dimensions(self):
-        return self._dimensions
+    def get_shape(self):
+        return self._shape
 
     @property
     def get_cells(self):
@@ -107,23 +128,25 @@ class Map():
     def get_cell_size(self):
         return self._cell_size
 
-    def calculate_cell_probabilities(self, measurements, beacons,previous_cell=None, prior=Prior.UNIFORM):
+    def calculate_cell_probabilities(self, measurements, beacons, previous_cell=None, prior=Prior.UNIFORM):
         standard_deviation = 2
 
         distance_sum = np.zeros(len(self.cell_centers))
         std_sum = np.zeros(len(self.cell_centers))
-        beacons_used = {address:beacon for address,beacon in beacons.items() if address in measurements.keys()}
-        for address,beacon in beacons_used.items():
-            rssi_predictions,covariance_predictions = beacon.predict_rssi(self.cell_centers)
+        beacons_used = {address: beacon for address,
+                        beacon in beacons.items() if address in measurements.keys()}
+        for address, beacon in beacons_used.items():
+            rssi_predictions, covariance_predictions = beacon.predict_rssi(
+                self.cell_centers)
             distance_sum += np.square(measurements[address] - rssi_predictions)
             std_sum += covariance_predictions
 
-    
         distances = np.sqrt(distance_sum / len(beacons_used))
         log_p = np.exp2(distances) / (2 * np.exp2(standard_deviation))
-            
-        for i,cell in enumerate(self._cells):
-            prior_condition = (prior is Prior.LOCAL and previous_cell is not None and previous_cell.isNeighbor(self)) or prior is Prior.UNIFORM
+
+        for i, cell in enumerate(self._cells):
+            prior_condition = (prior is Prior.LOCAL and previous_cell is not None and previous_cell.isNeighbor(
+                self)) or prior is Prior.UNIFORM
             cell.probability = log_p[i] if prior_condition else np.inf
             cell.covariance = std_sum[i]
 

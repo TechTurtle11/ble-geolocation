@@ -9,6 +9,7 @@ import constants as const
 import file_helper as fh
 from filtering import KalmanFilter
 import general_helper as gh
+import argparse
 
 logging.basicConfig(filename='logs/measurement.log', level=logging.DEBUG)
 
@@ -35,7 +36,7 @@ class ScanDelegate(DefaultDelegate):
             self.entries[dev.addr].append(dev.rssi)
 
 
-def get_live_measurement(previous_measurement=None,processing = True,measurement_process = const.MeasurementProcess.MEDIAN):
+def get_live_measurement(previous_measurement=None, processing=True, measurement_process=const.MeasurementProcess.MEDIAN):
     delegate = ScanDelegate()
     scanner = Scanner().withDelegate(delegate)
 
@@ -43,29 +44,30 @@ def get_live_measurement(previous_measurement=None,processing = True,measurement
         devices = scanner.scan(const.BEACON_WINDOW /
                                const.BEACON_SAMPLES_PER_WINDOW)
 
-
-    raw_measurement = {address: readings for address, readings in delegate.entries.items() if address in const.BEACON_MAC_ADDRESSES}
+    raw_measurement = {address: readings for address, readings in delegate.entries.items(
+    ) if address in const.BEACON_MAC_ADDRESSES}
 
     if processing:
-        processing_function = lambda v : v
+        def processing_function(v): return v
         if measurement_process is const.MeasurementProcess.MEAN:
             processing_function = np.mean
         elif measurement_process is const.MeasurementProcess.MEDIAN:
             processing_function = np.median
         else:
-            raise ValueError(f"This value {measurement_process} has not been implemented")
-
+            raise ValueError(
+                f"This value {measurement_process} has not been implemented")
 
         if previous_measurement is None:
             final_measurement = {address: (processing_function(readings), KalmanFilter(processing_function(readings))) for address,
-                                readings in raw_measurement.items()}
+                                 readings in raw_measurement.items()}
 
         else:
             final_measurement = {}
             for beacon, readings in raw_measurement.items():
                 if beacon in previous_measurement.keys():
                     _, filter = previous_measurement[beacon]
-                    filtered_rssi = filter.predict_and_update(processing_function(readings))
+                    filtered_rssi = filter.predict_and_update(
+                        processing_function(readings))
                     final_measurement[beacon] = (
                         round(filtered_rssi, 3), filter)
 
@@ -117,8 +119,9 @@ def collect_and_write_timed_measurement(beacon_name, time, filepath):
 def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN):
     """processes windowed training data"""
     processed_training_data = {}
-    position_beacon_map = {} # holds which beacons are used for each position
+    position_beacon_map = {}  # holds which beacons are used for each position
     hashed_position_map = {}
+    dimensions = [0, 0]
     for beacon, beacon_data in training_data.items():
         for window_data, position in beacon_data:
             if type is const.MeasurementProcess.MEAN:
@@ -156,8 +159,6 @@ def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN):
             processed_training_data[beacon] = np.append(
                         processed_training_data[beacon], [row], axis=0)"""
 
-
-
     return processed_training_data
 
 
@@ -175,7 +176,7 @@ def process_evaluation_data(evaluation_data, type=const.MeasurementProcess.MEDIA
                 raise ValueError(f"This value {type} has not been implemented")
 
             processed_beacon_pairs[beacon_address] = rssi_value
-        processed_evaluation_data.append([position,processed_beacon_pairs])
+        processed_evaluation_data.append([position, processed_beacon_pairs])
 
     return processed_evaluation_data
 
@@ -194,8 +195,8 @@ def collect_evaluation_data():
             print(f"Computing rssi vector for {position} :")
             previous_measurement = None
             for i in range(10):
-                previous_measurement = get_live_measurement(previous_measurement,processing=False)
-
+                previous_measurement = get_live_measurement(
+                    previous_measurement, processing=False)
 
                 evaluation_data.append([position, previous_measurement])
 
@@ -243,23 +244,28 @@ def collect_training_data():
     return beacon_positions, training_data
 
 
-
-
-
 def main():
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", help="Collect Training data")
+    parser.add_argument("file", help="The file to save the results too")
+    args = parser.parse_args()
 
-    beacon_positions, data = collect_training_data()
-    training_data_filepath = Path("data/training_outside.txt")
-    fh.write_training_data_to_file(beacon_positions,data,training_data_filepath)
+    if args.mode not in ["training", "evaluation", "timed"]:
+        print("Mode should be either evaluation or training")
 
-    data = collect_evaluation_data()
-    evaluation_data_filepath = Path("data/evaluation_outside.txt")
-    fh.write_evaluation_data_to_file(data, evaluation_data_filepath)
+    else:
+        filepath = Path(args.file)
+        if args.mode == "training":
+            beacon_positions, data = collect_training_data()
+            fh.write_training_data_to_file(beacon_positions, data, filepath)
+        elif args.mode == "evaluation":
+            data = collect_evaluation_data()
+            fh.write_evaluation_data_to_file(data, filepath)
+        elif args.mode == "timed":
+            collect_and_write_timed_measurement(
+                'e4:5f:01:63:71:64', 60, filepath)
 
 
 if __name__ == "__main__":
-    # measurement_filepath = Path("data/test_rotation_270_measurement.csv")
-    # collect_and_write_timed_measurement('e4:5f:01:63:71:64',60,measurement_filepath)
-    # print(read_measurement_from_file(measurement_filepath))
     main()

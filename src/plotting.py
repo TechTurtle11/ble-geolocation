@@ -133,8 +133,7 @@ def plot_rssi_distance(beacon, beacon_location):
 
 
 def plot_rssi_readings_over_time(data_set, title="unknown"):
-    plot_comparison(data_set, "Time", "RSSI Values(-DBm)", title)
-
+    plot_comparison(data_set, "Time (reading)", "RSSI Values(-DBm)", title)
 
 def plot_comparison(data_sets, x_axis, y_axis, title):
     fig, ax = plt.subplots()
@@ -191,6 +190,9 @@ def produce_measurement_plots(measurement_filepath, round=False):
     measurement = fh.read_measurement_from_file(measurement_filepath)
     mean_measurement = np.array([np.mean(window) for window in measurement])
     flattened_readings = np.array(list(chain.from_iterable(measurement)))
+
+    plt.hist(flattened_readings,bins=40)
+    plot_rssi_readings_over_time({"raw rssi measurements": flattened_readings},"Raw RSSI values over time")
 
     plot_filtered_rssi_comparison(measurement[0], "Window comparison", round)
     plot_filtered_rssi_comparison(
@@ -315,8 +317,8 @@ def main():
 
     # produce_rotation_plot()
     # input()
-    # measurement_filepath = Path("data/test_measurement.csv")
-    # produce_measurement_plots(measurement_filepath,round=True)
+    #measurement_filepath = Path("data/test_measurement.csv")
+    #produce_measurement_plots(measurement_filepath,round=True)
     # input()
     training_data_filepath = Path("data/training_outside.txt")
     starting_point = [0,0]

@@ -155,6 +155,23 @@ def run_localisation_iterations(training_data, beacon_locations, iterations, pri
     return selected_cells
 
 
+def add_beacon_to_map(predicted_position, training_data_filepath):
+
+
+    #adhoc if statement
+    """load training dat, translate training data based on predicted position, add to map"""
+
+
+
+
+    self.beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
+    training_data = process_training_data(training_data,type=const.MeasurementProcess.MEDIAN)
+    self.beacons = create_beacons(self.beacon_positions, training_data)
+
+
+
+
+
 def main():
     training_data_filepath = Path("data/training_outside.txt")
     position_prediction_filepath = Path("data/predictions/test1.txt")
