@@ -5,7 +5,7 @@ import numpy as np
 from localisation import run_convergence_localisation_on_file, run_localisation_on_file
 import models
 import constants as const
-from plotting import produce_average_localisation_distance_plot
+from plotting import plot_evaluation_metric, produce_average_localisation_distance_plot
 
 
 def rmse(predictions):
@@ -15,8 +15,8 @@ def rmse(predictions):
     rmse_results = {}
 
     for algorithm,predictions in predictions.items():
-        dist_sum = np.sum([np.linalg.norm(actual - prediction)**2 for actual, prediction in predictions])
-        rmse_results[algorithm] = np.sqrt(dist_sum/len(predictions))
+        values = [np.linalg.norm(actual - prediction)**2 for actual, prediction in predictions]
+        rmse_results[algorithm] = np.sqrt(np.mean(values))
 
     return rmse_results
 
@@ -28,14 +28,14 @@ def mae(predictions):
     mae_results = {}
 
     for algorithm,predictions in predictions.items():
-        dist_sum = np.sum([np.linalg.norm(actual - prediction) for actual, prediction in predictions])
-        mae_results[algorithm] = dist_sum/len(predictions)
+        values = [np.linalg.norm(actual - prediction) for actual, prediction in predictions]
+        mae_results[algorithm] = np.sqrt(np.mean(values))
 
     return mae_results
 
 def mae_confidence_interval(predictions):
     """
-    calculatesss 95% confidence interval
+    calculates 95% confidence interval
     """
 
     mae_conf_results = {}
@@ -50,9 +50,26 @@ def mae_confidence_interval(predictions):
 
     return mae_conf_results
 
+def rmse_confidence_interval(predictions):
+    """
+    calculates 95% confidence interval
+    """
+
+    mae_conf_results = {}
+
+    samples = len(predictions)
+    for algorithm,predictions in predictions.items():
+        dist = [np.linalg.norm(actual - prediction)**2 for actual, prediction in predictions]
+        rmse = np.sqrt(np.mean(dist))
+        std = np.std(dist)
+        confidence_interval  = 1.960 * std / np.sqrt(len(dist)) 
+        mae_conf_results[algorithm] = np.round([rmse,confidence_interval],2)
+
+    return mae_conf_results
 
 
-def initialise_localisation_model(model:const.Model,training_data_filepath, evaluation_data_filepath,filtering,prior=None):
+
+def initialise_localisation_model(model:const.Model,training_data_filepath,prior=None):
 
 
     if model is const.Model.GAUSSIAN:
@@ -73,7 +90,7 @@ def initialise_localisation_model(model:const.Model,training_data_filepath, eval
 
 def get_localisation_predictions(models, training_data_filepath, evaluation_data_filepath,filtering,prior):
 
-    models = {model.value:initialise_localisation_model(model,training_data_filepath, evaluation_data_filepath,filtering,prior) for model in models}
+    models = {model.value:initialise_localisation_model(model,training_data_filepath,prior) for model in models}
 
     if prior is const.Prior.LOCAL:
         predictions = {name: run_convergence_localisation_on_file(evaluation_data_filepath,model,filtering) for name,model in models.items()}
@@ -125,14 +142,26 @@ def prior_all_models_plot(training_data_filepath,evaluation_data_filepath):
         print(f"{algorithm:15}: {uniform_results[algorithm][0]:5} ± {uniform_results[algorithm][1]:5} : {local_results[algorithm][0]:5} ± {local_results[algorithm][1]:5}")
 
 
-    
+def all_models_plot(training_data_filepath,evaluation_data_filepath):
 
+
+    predictions = predict_all_models(training_data_filepath,evaluation_data_filepath,True,const.Prior.UNIFORM)
+
+    mae = mae_confidence_interval(predictions)
+    rmse = rmse_confidence_interval(predictions)
+
+    print("algorithm      :  mae         :  rmse ")
+    for i,algorithm in enumerate(predictions.keys()):
+        print(f"{algorithm:15}: {mae[algorithm][0]:5} ± {mae[algorithm][1]:5} : {rmse[algorithm][0]:5} ± {rmse[algorithm][1]:5}")
+
+    plot_evaluation_metric(mae,"mae")
 
 def main():
     training_data_filepath = Path("data/training_inside.txt")
     evaluation_data_filepath = Path("data/evaluation_inside.txt")   
     #predictions = filter_all_models_plot(training_data_filepath,evaluation_data_filepath)
-    prior_all_models_plot(training_data_filepath,evaluation_data_filepath)
+    all_models_plot(training_data_filepath,evaluation_data_filepath)
+    #prior_all_models_plot(training_data_filepath,evaluation_data_filepath)
 
 if __name__ == "__main__":
     main()

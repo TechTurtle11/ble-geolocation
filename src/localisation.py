@@ -5,7 +5,7 @@ import cProfile
 import numpy as np
 
 import file_helper as fh
-from filtering import BasicFilter, KalmanFilter
+from filtering import BaseFilter, BasicFilter, KalmanFilter
 import general_helper as gh
 from beacon import create_beacons
 from constants import MapAttribute, Prior
@@ -49,7 +49,7 @@ def run_iteration(beacons, area_map, previous_measurement=None, previous_cell=No
     return sorted_cells[0], current_measurement
 
 
-def run_localisation_on_file(evaluation_data_filepath,model,filtering=True):
+def run_localisation_on_file(evaluation_data_filepath,model,filtering=True,filter = KalmanFilter):
 
 
     evaluation_data = fh.load_evaluation_data(evaluation_data_filepath)
@@ -68,10 +68,10 @@ def run_localisation_on_file(evaluation_data_filepath,model,filtering=True):
             
             for beacon,rssi_value in measurement.items():
                 if beacon not in filter_map.keys():
-                    filter_map[beacon] = KalmanFilter(rssi_value)
-                else:
-                    if filtering:
-                        measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)
+                    filter_map[beacon] = filter()
+
+                if filtering:
+                    measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)
             position_filter_map[h] = filter_map         
 
 

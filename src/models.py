@@ -142,7 +142,7 @@ class WKNN(BaseModel):
             for line in data:
                 d_hash = gh.hash_2D_coordinate(*line[1:])
                 if not d_hash in distances.keys():
-                    distances[d_hash] = [np.array(line[1:]), 0, 1*10**-6]
+                    distances[d_hash] = [np.array(line[1:]), 0, 1*10**-6] #(position,distance_scratch,beacons_used)
                 if beacon in rssi_measurement.keys():
                     distances[d_hash][1] += np.square(
                         line[0] - rssi_measurement[beacon])

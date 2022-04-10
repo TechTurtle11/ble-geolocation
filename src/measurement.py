@@ -121,7 +121,6 @@ def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN):
     processed_training_data = {}
     position_beacon_map = {}  # holds which beacons are used for each position
     hashed_position_map = {}
-    dimensions = [0, 0]
     for beacon, beacon_data in training_data.items():
         for window_data, position in beacon_data:
             if type is const.MeasurementProcess.MEAN:
@@ -148,16 +147,6 @@ def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN):
             if h not in position_beacon_map.keys():
                 position_beacon_map[h] = []
             position_beacon_map[h].append(beacon)
-
-    """
-    #sets 100 to be the unobserved beacon_value
-    for h, observed_beacons in position_beacon_map.items():
-        position = hashed_position_map[h]
-        missing_beacons = [beacon for beacon in training_data.keys() if not beacon in observed_beacons]
-        for beacon in missing_beacons:
-            row = np.array([float(-100), *position])
-            processed_training_data[beacon] = np.append(
-                        processed_training_data[beacon], [row], axis=0)"""
 
     return processed_training_data
 

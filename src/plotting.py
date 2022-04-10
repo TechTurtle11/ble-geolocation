@@ -312,6 +312,52 @@ def produce_average_localisation_distance_plot(algorithm_predictions):
     plt.show()
 
 
+def plot_evaluation_metric(predictions,metric):
+
+
+    if metric == "mae":
+        y_label = "Mean Average Error (m)"
+    elif metric == "rmse":
+        y_label = "Root Mean Square Error (m)"
+
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel("Algorithm")
+    ax.set_ylabel(y_label)
+    ax.set_title(f"{y_label} for localisation algorithms") 
+
+    bar_width = 0.3
+
+    ax.grid(which='major', color='#DDDDDD', linewidth=0.8, axis="y",zorder=0)
+    ax.grid(which='minor', color='#EEEEEE', linestyle=':', linewidth=0.5,axis="y",zorder=0)
+    ax.minorticks_on()
+
+    plt.tick_params(
+    axis='x',          # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    bottom=False,      # ticks along the bottom edge are off
+    top=False,         # ticks along the top edge are off
+    labelbottom=False) # labels along the bottom edge are off
+
+    for i,algorithm in enumerate(predictions.keys()):
+        if len(list(predictions.values())[0]) > 1:
+            bar = ax.bar(bar_width*i, predictions[algorithm][0],yerr=predictions[algorithm][1],label = algorithm,width=bar_width,zorder=3)
+        else:
+            bar = ax.bar(bar_width*i, predictions[algorithm],label = algorithm,width=bar_width,zorder=3)
+
+        for i,rect in enumerate(bar):
+            if len(list(predictions.values())[0]) > 1:
+                height = predictions[algorithm][1]+ rect.get_height()
+                plt.text(rect.get_x() + rect.get_width() / 2.0, height, f'{predictions[algorithm][0]:.2f}', ha='center', va='bottom',zorder=4)
+
+            else:
+                height = rect.get_height()
+                plt.text(rect.get_x() + rect.get_width() / 2.0, height, f'{predictions[algorithm]:.2f}', ha='center', va='bottom',zorder=4)
+
+    ax.legend()
+    plt.show()
+
+
 def main():
     #produce_position_prediction_plots(Path("data/predictions/test1.txt"))
 
