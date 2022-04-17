@@ -16,7 +16,6 @@ class BaseFilter(ABC):
 
 
 class KalmanFilter(BaseFilter):
-
     def __init__(self, A=1, H=1, Q=1.6, R=6) -> None:
         """
 
@@ -48,11 +47,9 @@ class KalmanFilter(BaseFilter):
         new_var: variance state prediction
         """
 
-
         if self.previous_mean is None:
             self.previous_mean = new_observation
             return new_observation
-
 
         x_mean = self.A * self.previous_mean + np.random.normal(0, self.Q, 1)
         P_mean = self.A * self.previous_var * self.A + self.Q
@@ -64,7 +61,7 @@ class KalmanFilter(BaseFilter):
         self.previous_mean = new_mean
         self.previous_var = new_var
 
-        return new_mean
+        return new_mean[0]
 
 
 class BasicFilter(BaseFilter):
@@ -78,6 +75,38 @@ class BasicFilter(BaseFilter):
             return new_observation
 
         predicted_observation = new_observation * \
-            0.25 + self.previous_observation * 0.75
+            0.1 + self.previous_observation * 0.9
         self.previous_observation = predicted_observation
         return predicted_observation
+
+
+class MovingMeanFilter(BaseFilter):
+    def __init__(self) -> None:
+        self.n = 10
+        self.buffer = []
+
+    def predict_and_update(self, new_observation):
+        self.buffer.append(new_observation)
+
+        prediction = np.mean(self.buffer)
+
+        if len(self.buffer) >= self.n:
+            self.buffer.pop(0)
+
+        return prediction
+
+
+class MovingMedianFilter(BaseFilter):
+    def __init__(self) -> None:
+        self.n = 10
+        self.buffer = []
+
+    def predict_and_update(self, new_observation):
+        self.buffer.append(new_observation)
+
+        prediction = np.median(self.buffer)
+
+        if len(self.buffer) >= self.n:
+            self.buffer.pop(0)
+
+        return prediction

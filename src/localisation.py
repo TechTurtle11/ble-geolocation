@@ -5,7 +5,7 @@ import cProfile
 import numpy as np
 
 import file_helper as fh
-from filtering import BaseFilter, BasicFilter, KalmanFilter
+from filtering import BaseFilter, BasicFilter, KalmanFilter, MovingMeanFilter, MovingMedianFilter
 import general_helper as gh
 from beacon import create_beacons
 from constants import MapAttribute, Prior
@@ -100,7 +100,7 @@ def run_convergence_localisation_on_file(evaluation_data_filepath,model,filterin
                 
                 for beacon,rssi_value in measurement.items():
                     if beacon not in filter_map.keys():
-                        filter_map[beacon] = KalmanFilter(rssi_value)
+                        filter_map[beacon] = MovingMedianFilter(rssi_value)
                     else:
                         if filtering:
                             measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)

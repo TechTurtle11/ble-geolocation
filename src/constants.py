@@ -37,6 +37,7 @@ class Model(Enum):
 
     GAUSSIAN = "Gaussian"
     GAUSSIANKNN = "Gaussian KNN"
+    GAUSSIANMINMAX = "Gaussian MinMax"
     KNN = "KNN"
     WKNN = "WKNN"
     PROPOGATION = "Propagation"

@@ -2,6 +2,7 @@ from abc import ABC
 from itertools import chain
 import math
 from pathlib import Path
+from turtle import pos
 
 import numpy as np
 from beacon import create_beacons
@@ -21,6 +22,36 @@ class BaseModel(ABC):
 
     def predict_convergent_position(self, rssi_measurement, reset_map):
         return self.predict_position(rssi_measurement)
+
+    def weighted_centroid_localisation(self, points, values, function):
+
+        weights = [function(value) for value in values]
+
+        weights_sum = sum(weights)
+
+        position = np.zeros(2)
+        for point, weight in zip(points, weights):
+            position += (weight/weights_sum) * point
+        return position
+
+    def bounding_box(self, points, values, function):
+
+        adjusted_values = np.array([function(value) for value in values])
+
+        change = np.repeat(adjusted_values.reshape(
+            1, len(adjusted_values)), len(points[0]), axis=0).T
+
+        x_add = points + change
+        x_sub = points - change
+
+        x_min = np.max(x_sub[:, 0])
+        x_max = np.min(x_add[:, 0])
+        y_min = np.max(x_sub[:, 1])
+        y_max = np.min(x_add[:, 1])
+
+        x_est = 0.5 * np.array([x_min + x_max, y_min + y_max])
+
+        return x_est
 
 
 class GaussianProcessModel(BaseModel):
@@ -109,11 +140,39 @@ class GaussianKNNModel(GaussianProcessModel):
         k = 3
         first_k = sorted_cells[:k]
 
-        position = np.zeros(2)
+        position = self.weighted_centroid_localisation([cell.center for cell in first_k], [
+                                                       cell.probability for cell in first_k], lambda v: abs(v))
 
-        prob_sum = sum([abs(cell.probability) for cell in first_k])
-        for cell in first_k:
-            position += (abs(cell.probability) / prob_sum) * cell.center
+        return position
+
+
+class GaussianMinMaxModel(GaussianProcessModel):
+    """
+    Implementation of gaussian model with k-nearest neighbours on the area map:
+    This uses the gaussian process to produce the cell map then uses the 3 lowest cell
+    centers which pass the covariance condition have high probabilities and produces
+    a weighted mean of there corresponding positions.
+    """
+
+    def predict_position(self, rssi_measurement):
+        """
+        Predicts the position of the target device
+        """
+
+        calculated_cells = self.area_map.calculate_cell_probabilities(
+            rssi_measurement, self.beacons, self.prior)
+
+        calculated_cells = np.array(
+            [cell for cell in calculated_cells if cell.std < 0.4])
+        sorted_cells = sorted(
+            calculated_cells, key=lambda c: c.probability, reverse=False)
+
+        self.area_map.previous_cell = sorted_cells[0]
+        k = 3
+        first_k = sorted_cells[:k]
+
+        position = self.bounding_box([cell.center for cell in first_k], [
+                                     cell.probability for cell in first_k], lambda v: abs(1/v))
 
         return position
 
@@ -142,7 +201,8 @@ class WKNN(BaseModel):
             for line in data:
                 d_hash = gh.hash_2D_coordinate(*line[1:])
                 if not d_hash in distances.keys():
-                    distances[d_hash] = [np.array(line[1:]), 0, 1*10**-6] #(position,distance_scratch,beacons_used)
+                    # (position,distance_scratch,beacons_used)
+                    distances[d_hash] = [np.array(line[1:]), 0, 1*10**-6]
                 if beacon in rssi_measurement.keys():
                     distances[d_hash][1] += np.square(
                         line[0] - rssi_measurement[beacon])
@@ -154,15 +214,8 @@ class WKNN(BaseModel):
         sorted_points = sorted(list(distances.values()), key=lambda p: p[1])
         first_k = np.array(sorted_points[:k])
 
-        position = np.zeros(2)
-
-        distance_sum = sum(
-            [1 / distance for _, distance, _ in first_k]) + 1*10**-9
-        for point, distance, _ in first_k:
-            if distance == 0:
-                return point
-            else:
-                position += ((1/distance) / distance_sum) * point
+        position = self.weighted_centroid_localisation([point for point, _, _ in first_k], [
+                                                       distance for _, distance, _ in first_k], lambda v: 1/v if v != 0 else 1*10**10)
 
         return position
 
@@ -186,13 +239,8 @@ class KNN(BaseModel):
             list(rssi_measurement.items()), key=lambda p: p[1], reverse=True)
         first_k = sorted_points[:k]
 
-        position = np.zeros(2)
-
-        rssi_sum = sum([abs(1 / rssi) for _, rssi in first_k])
-
-        for beacon, rssi in first_k:
-            position += (abs(1/rssi) / rssi_sum) * \
-                self.beacon_positions[beacon]
+        position = self.weighted_centroid_localisation([self.beacon_positions[beacon] for beacon, _ in first_k], [
+                                                       rssi for _, rssi in first_k], lambda v: abs(1/v) if v != 0 else 1*10**10)
 
         return position
 
@@ -236,15 +284,11 @@ class PropagationModel(BaseModel):
             distance_sum += distance
             beacon_distances[beacon] = distance
 
-        position = np.zeros(2)
-        distance_sum = sum(
-            [1 / distance for _, distance in beacon_distances.items()]) + 1*10**-9
-        for beacon, distance in beacon_distances.items():
-            if distance == 0:
-                return self.beacon_positions[beacon]
-            else:
-                position += ((1/distance) / distance_sum) * \
-                    self.beacon_positions[beacon]
+        beacon_positions = np.array(
+            [self.beacon_positions[beacon] for beacon in beacon_distances.keys()])
+
+        position = self.bounding_box(beacon_positions, np.array(
+            list(beacon_distances.values())), lambda v: v)
 
         return position
 
@@ -265,11 +309,5 @@ class ProximityModel(BaseModel):
         Predicts the position of the target device
         """
 
-        max_beacon = None
-        max_rssi = -np.inf
-        for beacon, measurement in rssi_measurement.items():
-            if measurement > max_rssi:
-                max_beacon = beacon
-                max_rssi = measurement
-
+        max_beacon = max(rssi_measurement, key=rssi_measurement.get)
         return self.beacon_positions[max_beacon]

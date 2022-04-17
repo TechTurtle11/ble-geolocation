@@ -76,10 +76,12 @@ def initialise_localisation_model(model:const.Model,training_data_filepath,prior
         return models.GaussianProcessModel(training_data_filepath,prior=prior,cell_size=1)
     elif model is const.Model.GAUSSIANKNN:
         return models.GaussianKNNModel(training_data_filepath,prior=prior,cell_size=1)
+    elif model is const.Model.GAUSSIANMINMAX:
+        return models.GaussianMinMaxModel(training_data_filepath,prior=prior,cell_size=1)
     elif model is const.Model.KNN:
-        return models.WKNN(training_data_filepath,)
-    elif model is const.Model.WKNN:
         return models.KNN(training_data_filepath,)
+    elif model is const.Model.WKNN:
+        return models.WKNN(training_data_filepath,)
     elif model is const.Model.PROPOGATION:
         return models.PropagationModel(training_data_filepath,2)
     elif model is const.Model.PROXIMITY:
@@ -145,7 +147,7 @@ def prior_all_models_plot(training_data_filepath,evaluation_data_filepath):
 def all_models_plot(training_data_filepath,evaluation_data_filepath):
 
 
-    predictions = predict_all_models(training_data_filepath,evaluation_data_filepath,True,const.Prior.UNIFORM)
+    predictions = predict_all_models(training_data_filepath,evaluation_data_filepath,False,const.Prior.UNIFORM)
 
     mae = mae_confidence_interval(predictions)
     rmse = rmse_confidence_interval(predictions)
@@ -157,10 +159,10 @@ def all_models_plot(training_data_filepath,evaluation_data_filepath):
     plot_evaluation_metric(mae,"mae")
 
 def main():
-    training_data_filepath = Path("data/training_inside.txt")
-    evaluation_data_filepath = Path("data/evaluation_inside.txt")   
-    #predictions = filter_all_models_plot(training_data_filepath,evaluation_data_filepath)
-    all_models_plot(training_data_filepath,evaluation_data_filepath)
+    training_data_filepath = Path("data/training_outside.txt")
+    evaluation_data_filepath = Path("data/evaluation_outside.txt")   
+    predictions = filter_all_models_plot(training_data_filepath,evaluation_data_filepath)
+    #all_models_plot(training_data_filepath,evaluation_data_filepath)
     #prior_all_models_plot(training_data_filepath,evaluation_data_filepath)
 
 if __name__ == "__main__":
