@@ -100,7 +100,7 @@ def run_convergence_localisation_on_file(evaluation_data_filepath,model,filterin
                 
                 for beacon,rssi_value in measurement.items():
                     if beacon not in filter_map.keys():
-                        filter_map[beacon] = MovingMedianFilter(rssi_value)
+                        filter_map[beacon] = KalmanFilter()
                     else:
                         if filtering:
                             measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)

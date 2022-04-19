@@ -83,7 +83,7 @@ def initialise_localisation_model(model:const.Model,training_data_filepath,prior
     elif model is const.Model.WKNN:
         return models.WKNN(training_data_filepath,)
     elif model is const.Model.PROPOGATION:
-        return models.PropagationModel(training_data_filepath,2)
+        return models.PropagationModel(training_data_filepath,const.PROPAGATION_CONSTANT)
     elif model is const.Model.PROXIMITY:
         return models.ProximityModel(training_data_filepath)
     else:

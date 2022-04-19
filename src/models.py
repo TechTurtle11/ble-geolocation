@@ -172,7 +172,7 @@ class GaussianMinMaxModel(GaussianProcessModel):
         first_k = sorted_cells[:k]
 
         position = self.bounding_box([cell.center for cell in first_k], [
-                                     cell.probability for cell in first_k], lambda v: abs(1/v))
+                                     cell.probability for cell in first_k], lambda v: abs(v))
 
         return position
 
@@ -262,10 +262,11 @@ class PropagationModel(BaseModel):
         beacon_constants = {}
         for beacon, data in training_data.items():
             beacon_position = self.beacon_positions[beacon]
-            distances = np.linalg.norm(data[:, 1:]-beacon_position, axis=1) - 1
+            distances = np.linalg.norm(data[:, 1:]-beacon_position, axis=1) 
+            distances = distances[distances >=1]
             closest_index = np.argmin(distances)
             beacon_constants[beacon] = (
-                data[closest_index, 0], 1+distances[closest_index])
+                data[closest_index, 0], distances[closest_index])
 
         self.distance_functions = {}
         for beacon, constants in beacon_constants.items():
@@ -288,7 +289,7 @@ class PropagationModel(BaseModel):
             [self.beacon_positions[beacon] for beacon in beacon_distances.keys()])
 
         position = self.bounding_box(beacon_positions, np.array(
-            list(beacon_distances.values())), lambda v: v)
+            list(beacon_distances.values())), lambda v: abs(1/v))
 
         return position
 

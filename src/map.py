@@ -158,7 +158,7 @@ class Map():
         for i, cell in enumerate(self._cells):
             prior_condition = (prior is Prior.LOCAL and self.previous_cell is not None and self.previous_cell.isNeighbor(
                 cell)) or random.randint(0,9) < 1 or prior is Prior.UNIFORM
-            cell.probability = log_p[i] if prior_condition else 1*10**-9
+            cell.probability = log_p[i] if prior_condition else 1*10**9
             cell.std = std_sum[i]
 
         return self._cells
