@@ -4,12 +4,12 @@ import cProfile
 
 import numpy as np
 
-import file_helper as fh
-from filtering import BaseFilter, BasicFilter, KalmanFilter, MovingMeanFilter, MovingMedianFilter
-import general_helper as gh
-from beacon import create_beacons
-from constants import MapAttribute, Prior
-from map import Map
+import Utils.file_helper as fh
+from Processing.filtering import BaseFilter, BasicFilter, KalmanFilter, MovingMeanFilter, MovingMedianFilter
+import Utils.general_helper as gh
+from Models.beacon import create_beacons
+from Utils.constants import MapAttribute, Prior
+from Models.map import Map
 from measurement import get_live_measurement, process_evaluation_data, process_training_data
 from plotting import plot_map_attribute, produce_average_localisation_distance_plot, produce_localisation_distance_plot
 

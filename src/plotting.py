@@ -5,12 +5,12 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import file_helper as fh
-from filtering import BasicFilter, KalmanFilter, MovingMeanFilter, MovingMedianFilter
+import Utils.file_helper as fh
+from Processing.filtering import BasicFilter, KalmanFilter, MovingMeanFilter, MovingMedianFilter
 import measurement as measure
-from beacon import create_beacons
-from constants import MapAttribute
-from map import Map
+from Models.beacon import create_beacons
+from Utils.constants import MapAttribute
+from Models.map import Map
 
 
 def plot_beacon_map_rssi(beacon_name, beacon, starting_point, ending_point, offset=False):

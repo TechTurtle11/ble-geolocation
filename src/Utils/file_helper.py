@@ -3,8 +3,8 @@ from pathlib import Path
 
 import numpy as np
 
-import general_helper as gh
-from map import Cell
+import Utils.general_helper as gh
+from Models.map import Cell
 
 
 def write_cells_to_file(cells, filepath):

@@ -1,18 +1,17 @@
 from abc import ABC
 from itertools import chain
-import math
 from pathlib import Path
 from turtle import pos
 
 import numpy as np
-from beacon import create_beacons
+from Models.beacon import create_beacons
 from localisation import predict_positions
-from map import Map
+from Models.map import Map
 
 from measurement import process_training_data
-import file_helper as fh
-import general_helper as gh
-import constants as const
+import Utils.file_helper as fh
+import Utils.general_helper as gh
+import Utils.constants as const
 
 
 class BaseModel(ABC):

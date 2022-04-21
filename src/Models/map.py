@@ -1,6 +1,6 @@
 import random
 import numpy as np
-from constants import Prior
+from Utils.constants import Prior
 
 
 class Cell:

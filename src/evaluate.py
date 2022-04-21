@@ -1,10 +1,11 @@
+import argparse
 from pathlib import Path
 from statistics import mode
 import numpy as np
 
 from localisation import run_convergence_localisation_on_file, run_localisation_on_file
-import models
-import constants as const
+import Models.models as models
+import Utils.constants as const
 from plotting import plot_evaluation_metric, produce_average_localisation_distance_plot
 
 
@@ -159,11 +160,25 @@ def all_models_plot(training_data_filepath,evaluation_data_filepath):
     plot_evaluation_metric(mae,"mae")
 
 def main():
-    training_data_filepath = Path("data/training_outside.txt")
-    evaluation_data_filepath = Path("data/evaluation_outside.txt")   
-    predictions = filter_all_models_plot(training_data_filepath,evaluation_data_filepath)
-    #all_models_plot(training_data_filepath,evaluation_data_filepath)
-    #prior_all_models_plot(training_data_filepath,evaluation_data_filepath)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", help="Evaluation Wanted")
+    parser.add_argument("training_file", help="The file with the training data in it.")
+    parser.add_argument("evaluation_file", help="The file with the evaluation data in it.")
+    args = parser.parse_args()
+
+    modes = ["all","prior","filter"]
+    if args.mode not in modes:
+        print("Mode should be in " + ",".join(modes))
+
+    else:
+        training_filepath = Path(args.training_file)
+        evaluation_filepath = Path(args.evaluation_file)
+        if args.mode == "all":
+            all_models_plot(training_filepath,evaluation_filepath)
+        elif args.mode == "prior":
+            prior_all_models_plot(training_filepath,evaluation_filepath)
+        elif args.mode == "filter":
+            filter_all_models_plot(training_filepath,evaluation_filepath)
 
 if __name__ == "__main__":
     main()

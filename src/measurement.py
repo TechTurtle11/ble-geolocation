@@ -5,10 +5,10 @@ from pathlib import Path
 import numpy as np
 from bluepy.btle import Scanner, DefaultDelegate
 
-import constants as const
-import file_helper as fh
-from filtering import KalmanFilter
-import general_helper as gh
+import Utils.constants as const
+import Utils.file_helper as fh
+from Processing.filtering import KalmanFilter
+import Utils.general_helper as gh
 import argparse
 
 logging.basicConfig(filename='logs/measurement.log', level=logging.DEBUG)

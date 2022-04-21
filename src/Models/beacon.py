@@ -1,8 +1,5 @@
-from turtle import pos
 import sklearn.gaussian_process as gp
 from sklearn.linear_model import LinearRegression
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
 
 
 class Beacon():
