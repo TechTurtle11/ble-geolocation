@@ -16,22 +16,24 @@ class BaseFilter(ABC):
 
 
 class KalmanFilter(BaseFilter):
-    def __init__(self, A=1, H=1, Q=1.6, R=6) -> None:
+    def __init__(self, A=1, B=1,C=1, Q=4, R=0.008) -> None:
         """
 
         Kalman Filter Implementation
         Parameters:
         previous_mean: previous mean state
         previous_var : previous variance state
-        A: The transition constant
-        H: measurement constant
-        Q: The covariance constant
-        R: measurement covariance constant"""
+        A: state vector
+        B: control vector
+        C: control vector
+        Q: measurement noise
+        R: process noise """
 
         self.previous_mean = None
-        self.previous_var = 0
+        self.previous_var = None
         self.A = A
-        self.H = H
+        self.B = B
+        self.C = C
         self.Q = Q
         self.R = R
 
@@ -48,20 +50,23 @@ class KalmanFilter(BaseFilter):
         """
 
         if self.previous_mean is None:
-            self.previous_mean = new_observation
+            self.previous_mean = ( 1/ self.C) * new_observation
+            self.previous_var = (1/ self.C) * self.Q * (1/self.C)
             return new_observation
+        else:
+            x_mean = self.A * self.previous_mean + self.B * np.random.normal(0, self.R, 1)
+            P_mean = (self.A * self.previous_var * self.A )+ self.R
 
-        x_mean = self.A * self.previous_mean + np.random.normal(0, self.Q, 1)
-        P_mean = self.A * self.previous_var * self.A + self.Q
+            #kalman gain
+            K = P_mean * self.C * (1 / ((self.C * P_mean * self.C) + self.Q))
 
-        K = P_mean * self.H * (1 / (self.H * P_mean * self.H + self.R))
-        new_mean = x_mean + K * (new_observation - self.H * x_mean)
-        new_var = (1 - K * self.H) * P_mean
+            new_mean = x_mean + K * (new_observation - (self.C * x_mean))
+            new_var = P_mean - (K * self.C * P_mean)
 
-        self.previous_mean = new_mean
-        self.previous_var = new_var
+            self.previous_mean = new_mean
+            self.previous_var = new_var
 
-        return new_mean[0]
+            return new_mean[0]
 
 
 class BasicFilter(BaseFilter):

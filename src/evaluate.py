@@ -166,15 +166,19 @@ def main():
     parser.add_argument("evaluation_file", help="The file with the evaluation data in it.")
     args = parser.parse_args()
 
-    modes = ["all","prior","filter"]
+    modes = ["eval","all","prior","filter"]
     if args.mode not in modes:
         print("Mode should be in " + ",".join(modes))
 
     else:
         training_filepath = Path(args.training_file)
         evaluation_filepath = Path(args.evaluation_file)
+        if args.mode == "eval":
+            all_models_plot(training_filepath,evaluation_filepath)
         if args.mode == "all":
             all_models_plot(training_filepath,evaluation_filepath)
+            prior_all_models_plot(training_filepath,evaluation_filepath)
+            filter_all_models_plot(training_filepath,evaluation_filepath)
         elif args.mode == "prior":
             prior_all_models_plot(training_filepath,evaluation_filepath)
         elif args.mode == "filter":

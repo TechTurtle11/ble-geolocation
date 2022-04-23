@@ -167,9 +167,8 @@ def plot_position_prediction(position, predicted_cells, beacons):
     plt.show()
 
 
-def plot_filtered_rssi_comparison(measurement, title, round=False):
-    filters = {"basic": BasicFilter(), "Kalman": KalmanFilter(
-    ), "Mean": MovingMeanFilter(), "Median": MovingMedianFilter()}
+def plot_filtered_rssi_comparison(measurement, title,filters, round=False):
+
     filtered_lists = {k: f.filter_list(measurement)
                       for k, f in filters.items()}
 
@@ -191,17 +190,28 @@ def produce_position_prediction_plots(filepath):
 def produce_measurement_plots(measurement_filepath, round=False):
     measurement = fh.read_measurement_from_file(measurement_filepath)
     mean_measurement = np.array([np.mean(window) for window in measurement])
+    median_measurement = np.array([np.median(window) for window in measurement])
+
     flattened_readings = np.array(list(chain.from_iterable(measurement)))
 
-    plt.hist(flattened_readings, bins=40)
-    plot_rssi_readings_over_time(
-        {"raw rssi measurements": flattened_readings}, "Raw RSSI values over time")
 
-    plot_filtered_rssi_comparison(measurement[0], "Window comparison", round)
+    plot_rssi_readings_over_time(
+        {"mean": mean_measurement, "median": median_measurement}, "Raw RSSI values over time")
+    #plt.hist(flattened_readings, bins=40)
+    plot_rssi_readings_over_time(
+        {"raw rssi measurements": flattened_readings}, "Mean vs Median")
+
+    filters = {"basic": BasicFilter(), "Kalman": KalmanFilter(
+    ), "Mean": MovingMeanFilter(), "Median": MovingMedianFilter()}
+
     plot_filtered_rssi_comparison(
-        mean_measurement, "Mean Filter comparison", round)
+        mean_measurement[100:700], "Filter Comparison",{"Median": MovingMedianFilter(), "Kalman": KalmanFilter()}, round)
+
+    plot_filtered_rssi_comparison(measurement[0], "Window comparison",filters, round)
     plot_filtered_rssi_comparison(
-        flattened_readings, "Raw filter comparison", round)
+        mean_measurement[100:700], "Mean Filter comparison",filters, round)
+    plot_filtered_rssi_comparison(
+        flattened_readings, "Raw filter comparison",filters, round)
     plt.show()
 
 
@@ -374,8 +384,8 @@ def main():
 
     # produce_rotation_plot()
     # input()
-    measurement_filepath = Path("data/test_measurement.csv")
-    produce_measurement_plots(measurement_filepath, round=True)
+    measurement_filepath = Path("data/experiment/test_measurement.csv")
+    produce_measurement_plots(measurement_filepath, round=False)
     # input()
     training_data_filepath = Path("data/training_outside.txt")
     starting_point = [0, 0]

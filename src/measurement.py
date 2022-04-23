@@ -83,7 +83,7 @@ def get_training_measurement(beacons_addresses):
 
     for j in range(5):
         for i in range(const.BEACON_SAMPLES_PER_WINDOW):
-            devices = scanner.scan(0.1)
+            devices = scanner.scan(0.05)
 
     measurement_general = {address: readings for address,
                            readings in delegate.entries.items() if address in beacons_addresses}

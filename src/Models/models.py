@@ -64,7 +64,7 @@ class GaussianProcessModel(BaseModel):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         training_data = process_training_data(
-            training_data, type=const.MeasurementProcess.MEDIAN)
+            training_data, type=const.MeasurementProcess.QUANTILE)
         self.beacons = create_beacons(self.beacon_positions, training_data)
         if bottom_corner is None or shape is None:
             bottom_corner, shape = self.get_map_dimensions(
@@ -79,8 +79,11 @@ class GaussianProcessModel(BaseModel):
 
         calculated_cells = self.area_map.calculate_cell_probabilities(
             rssi_measurement, self.beacons, self.prior)
+
+        stds = np.array([cell.std for cell in calculated_cells])
+        std_median = np.median(stds)
         calculated_cells = np.array(
-            [cell for cell in calculated_cells if cell.std < 0.4])
+            [cell for cell in calculated_cells if cell.std < std_median+np.std(stds)])
         sorted_cells = sorted(
             calculated_cells, key=lambda c: c.probability, reverse=False)
         self.area_map.previous_cell = sorted_cells[0]
@@ -130,8 +133,10 @@ class GaussianKNNModel(GaussianProcessModel):
         calculated_cells = self.area_map.calculate_cell_probabilities(
             rssi_measurement, self.beacons, self.prior)
 
+        stds = np.array([cell.std for cell in calculated_cells])
+        std_median = np.median(stds)
         calculated_cells = np.array(
-            [cell for cell in calculated_cells if cell.std < 0.4])
+            [cell for cell in calculated_cells if cell.std < std_median+np.std(stds)])
         sorted_cells = sorted(
             calculated_cells, key=lambda c: c.probability, reverse=False)
 
@@ -161,8 +166,10 @@ class GaussianMinMaxModel(GaussianProcessModel):
         calculated_cells = self.area_map.calculate_cell_probabilities(
             rssi_measurement, self.beacons, self.prior)
 
+        stds = np.array([cell.std for cell in calculated_cells])
+        std_median = np.median(stds)
         calculated_cells = np.array(
-            [cell for cell in calculated_cells if cell.std < 0.4])
+            [cell for cell in calculated_cells if cell.std < std_median+np.std(stds)])
         sorted_cells = sorted(
             calculated_cells, key=lambda c: c.probability, reverse=False)
 
@@ -188,7 +195,7 @@ class WKNN(BaseModel):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         self.training_data = process_training_data(
-            training_data, type=const.MeasurementProcess.MEDIAN)
+            training_data, type=const.MeasurementProcess.QUANTILE)
 
     def predict_position(self, rssi_measurement, k=3):
         """
