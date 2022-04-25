@@ -60,11 +60,11 @@ class GaussianProcessModel(BaseModel):
     with the highest probabilty which passes the standard deviation test,
     """
 
-    def __init__(self, training_data_filepath: Path, prior, bottom_corner=None, shape=None, cell_size=1):
+    def __init__(self, training_data_filepath: Path, prior, bottom_corner=None, shape=None, cell_size=1,filter=False):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         training_data = process_training_data(
-            training_data, type=const.MeasurementProcess.QUANTILE)
+            training_data, type=const.MeasurementProcess.QUANTILE,filter=filter)
         self.beacons = create_beacons(self.beacon_positions, training_data)
         if bottom_corner is None or shape is None:
             bottom_corner, shape = self.get_map_dimensions(
@@ -169,7 +169,7 @@ class GaussianMinMaxModel(GaussianProcessModel):
         stds = np.array([cell.std for cell in calculated_cells])
         std_median = np.median(stds)
         calculated_cells = np.array(
-            [cell for cell in calculated_cells if cell.std < std_median+np.std(stds)])
+            [cell for cell in calculated_cells if cell.std <= std_median+np.std(stds)])
         sorted_cells = sorted(
             calculated_cells, key=lambda c: c.probability, reverse=False)
 
@@ -191,11 +191,11 @@ class WKNN(BaseModel):
     a weighted mean of there corresponding positions.
     """
 
-    def __init__(self, training_data_filepath: Path):
+    def __init__(self, training_data_filepath: Path,filter=False):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         self.training_data = process_training_data(
-            training_data, type=const.MeasurementProcess.QUANTILE)
+            training_data, type=const.MeasurementProcess.QUANTILE,filter=filter)
 
     def predict_position(self, rssi_measurement, k=3):
         """
@@ -258,11 +258,11 @@ class PropagationModel(BaseModel):
     and co-locates the user with them.
     """
 
-    def __init__(self, training_data_filepath: Path, n):
+    def __init__(self, training_data_filepath: Path, n,filter=False):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         training_data = process_training_data(
-            training_data, type=const.MeasurementProcess.MEAN)
+            training_data, type=const.MeasurementProcess.MEAN,filter=filter)
 
         # get constant values closest to 1
         beacon_constants = {}

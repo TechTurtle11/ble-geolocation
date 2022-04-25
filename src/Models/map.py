@@ -48,30 +48,6 @@ class Cell:
     def __str__(self) -> str:
         return f"Cell: Center:{self._center} Prob: {self._probability} Cov: {self._std}"
 
-    def calculate_probabilty(self, measurements, beacons, previous_cell=None, prior=Prior.UNIFORM,
-                             standard_deviation=1):
-        distance = 0.
-        position = self._center
-        log_p = np.inf
-        self.std = 0
-
-        prior_condition = (prior is Prior.LOCAL and previous_cell is not None and previous_cell.isNeighbor(
-            self)) or prior is Prior.UNIFORM
-
-        if len(measurements) > 0 and prior_condition:
-            beacons_used = 0
-            for address, measurement in measurements.items():
-                if address in beacons.keys():
-                    predicted_rssi, cell_cov = beacons[address].predict_rssi(
-                        position)
-                    distance += (measurement - predicted_rssi) ** 2
-                    self.covariance += cell_cov[0]
-                    beacons_used += 1
-
-            distance = np.sqrt(distance / beacons_used)
-            log_p = np.exp2(distance) / (2 * np.exp2(standard_deviation))
-        return log_p
-
 
 class Map():
 
@@ -157,7 +133,7 @@ class Map():
 
         for i, cell in enumerate(self._cells):
             prior_condition = (prior is Prior.LOCAL and self.previous_cell is not None and self.previous_cell.isNeighbor(
-                cell)) or random.randint(0,9) < 1 or prior is Prior.UNIFORM
+                cell)) or random.randint(0,9) < 2 or prior is Prior.UNIFORM or self.previous_cell is None
             cell.probability = log_p[i] if prior_condition else 1*10**9
             cell.std = std_sum[i]
 

@@ -332,15 +332,22 @@ def produce_average_localisation_distance_plot(algorithm_predictions):
 
 def plot_evaluation_metric(predictions, metric):
 
+    x_label = "Algorithm"
     if metric == "mae":
         y_label = "Mean Average Error (m)"
+        title = f"{y_label} for Localisation Algorithms"
     elif metric == "rmse":
         y_label = "Root Mean Square Error (m)"
+        title = f"{y_label} for Localisation Algorithms"
+    elif metric == "mae,cell_size":
+        y_label = "Mean Average Error (m)"
+        x_label = "Cell Size (m)"
+        title = f"How Cell Size Affects Gaussian Model Performance"
 
     fig, ax = plt.subplots()
-    ax.set_xlabel("Algorithm")
+    ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
-    ax.set_title(f"{y_label} for localisation algorithms")
+    ax.set_title(title)
 
     bar_width = 0.3
 
@@ -351,10 +358,15 @@ def plot_evaluation_metric(predictions, metric):
 
     plt.tick_params(
         axis='x',          # changes apply to the x-axis
-        which='both',      # both major and minor ticks are affected
+        which='minor',      # both major and minor ticks are affected
         bottom=False,      # ticks along the bottom edge are off
         top=False,         # ticks along the top edge are off
-        labelbottom=False)  # labels along the bottom edge are off
+        labelbottom=True, # labels along the bottom edge are off
+        )  
+
+    xtick_locations = bar_width * np.arange(len(predictions.keys()))
+    ax.set_xticks(xtick_locations)
+    ax.set_xticklabels(list(predictions.keys()),rotation="45",ha="right")
 
     for i, algorithm in enumerate(predictions.keys()):
         if len(list(predictions.values())[0]) > 1:
@@ -375,7 +387,6 @@ def plot_evaluation_metric(predictions, metric):
                 plt.text(rect.get_x() + rect.get_width() / 2.0, height,
                          f'{predictions[algorithm]:.2f}', ha='center', va='bottom', zorder=4)
 
-    ax.legend()
     plt.show()
 
 

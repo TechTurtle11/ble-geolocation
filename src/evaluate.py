@@ -70,21 +70,21 @@ def rmse_confidence_interval(predictions):
 
 
 
-def initialise_localisation_model(model:const.Model,training_data_filepath,prior=None):
+def initialise_localisation_model(model:const.Model,training_data_filepath,filter=False,prior=None):
 
 
     if model is const.Model.GAUSSIAN:
-        return models.GaussianProcessModel(training_data_filepath,prior=prior,cell_size=1)
+        return models.GaussianProcessModel(training_data_filepath,prior=prior,cell_size=1,filter=filter)
     elif model is const.Model.GAUSSIANKNN:
-        return models.GaussianKNNModel(training_data_filepath,prior=prior,cell_size=1)
+        return models.GaussianKNNModel(training_data_filepath,prior=prior,cell_size=1,filter=filter)
     elif model is const.Model.GAUSSIANMINMAX:
-        return models.GaussianMinMaxModel(training_data_filepath,prior=prior,cell_size=1)
+        return models.GaussianMinMaxModel(training_data_filepath,prior=prior,cell_size=1,filter=filter)
     elif model is const.Model.KNN:
         return models.KNN(training_data_filepath,)
     elif model is const.Model.WKNN:
-        return models.WKNN(training_data_filepath,)
+        return models.WKNN(training_data_filepath,filter=filter)
     elif model is const.Model.PROPOGATION:
-        return models.PropagationModel(training_data_filepath,const.PROPAGATION_CONSTANT)
+        return models.PropagationModel(training_data_filepath,const.PROPAGATION_CONSTANT,filter=filter)
     elif model is const.Model.PROXIMITY:
         return models.ProximityModel(training_data_filepath)
     else:
@@ -93,7 +93,7 @@ def initialise_localisation_model(model:const.Model,training_data_filepath,prior
 
 def get_localisation_predictions(models, training_data_filepath, evaluation_data_filepath,filtering,prior):
 
-    models = {model.value:initialise_localisation_model(model,training_data_filepath,prior) for model in models}
+    models = {model.value:initialise_localisation_model(model,training_data_filepath,filtering,prior) for model in models}
 
     if prior is const.Prior.LOCAL:
         predictions = {name: run_convergence_localisation_on_file(evaluation_data_filepath,model,filtering) for name,model in models.items()}
@@ -148,7 +148,7 @@ def prior_all_models_plot(training_data_filepath,evaluation_data_filepath):
 def all_models_plot(training_data_filepath,evaluation_data_filepath):
 
 
-    predictions = predict_all_models(training_data_filepath,evaluation_data_filepath,False,const.Prior.UNIFORM)
+    predictions = predict_all_models(training_data_filepath,evaluation_data_filepath,True,const.Prior.UNIFORM)
 
     mae = mae_confidence_interval(predictions)
     rmse = rmse_confidence_interval(predictions)
@@ -159,6 +159,17 @@ def all_models_plot(training_data_filepath,evaluation_data_filepath):
 
     plot_evaluation_metric(mae,"mae")
 
+
+def cellsize_plot(training_data_filepath,evaluation_data_filepath):
+
+    cell_sizes = (2** np.arange(0,6)) / 4
+    cell_sizes = np.arange(0.5,1.1,step=0.1)
+    gaussian_models = {size: models.GaussianMinMaxModel(training_data_filepath,prior=const.Prior.UNIFORM,cell_size=size,filter=True) for size in cell_sizes}
+    gaussian_predictions = {name: run_localisation_on_file(evaluation_data_filepath,model,False) for name,model in gaussian_models.items()}
+    gaussian_mae = mae_confidence_interval(gaussian_predictions)
+    plot_evaluation_metric(gaussian_mae,"mae,cell_size")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", help="Evaluation Wanted")
@@ -166,7 +177,7 @@ def main():
     parser.add_argument("evaluation_file", help="The file with the evaluation data in it.")
     args = parser.parse_args()
 
-    modes = ["eval","all","prior","filter"]
+    modes = ["eval","all","prior","filter","cell_size"]
     if args.mode not in modes:
         print("Mode should be in " + ",".join(modes))
 
@@ -183,6 +194,8 @@ def main():
             prior_all_models_plot(training_filepath,evaluation_filepath)
         elif args.mode == "filter":
             filter_all_models_plot(training_filepath,evaluation_filepath)
+        elif args.mode == "cell_size":
+            cellsize_plot(training_filepath,evaluation_filepath)
 
 if __name__ == "__main__":
     main()

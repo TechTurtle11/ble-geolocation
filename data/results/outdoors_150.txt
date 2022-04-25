@@ -1,39 +1,28 @@
 algorithm      :  mae         :  rmse 
-Gaussian       :  2.58 ±  0.28 :  3.11 ±  2.48
-Gaussian KNN   :  2.51 ±  0.22 :  2.86 ±  1.27
-Gaussian MinMax:  2.47 ±  0.23 :  2.87 ±  1.41
-KNN            :  4.01 ±  0.33 :  4.51 ±  2.78
-Propagation    :  5.31 ±  0.29 :  5.61 ±  3.07
-Proximity      :  3.88 ±  0.24 :  4.17 ±  2.23
-WKNN           :  2.56 ±  0.31 :  3.21 ±  3.17
-
-cell_size = 0.5
-algorithm      :  mae         :  rmse 
-Gaussian       :  2.48 ±  0.28 :  3.04 ±  2.18
-Gaussian KNN   :  2.42 ±  0.28 :  2.98 ±  2.33
-Gaussian MinMax:  2.41 ±  0.27 :  2.95 ±  2.01
-KNN            :  4.01 ±  0.33 :  4.51 ±  2.78
-Propagation    :  5.31 ±  0.29 :  5.61 ±  3.07
-Proximity      :  3.88 ±  0.24 :  4.17 ±  2.23
-WKNN           :  2.56 ±  0.31 :  3.21 ±  3.17
-
-cell_size = 0.25
-algorithm      :  mae         :  rmse 
-Gaussian       :  2.42 ±  0.28 :  2.97 ±  2.12
-Gaussian KNN   :  2.33 ±  0.25 :  2.79 ±  1.69
-Gaussian MinMax:  2.33 ±  0.25 :  2.81 ±  1.72
-KNN            :  4.01 ±  0.33 :  4.51 ±  2.78
-Propagation    :  5.31 ±  0.29 :  5.61 ±  3.07
-Proximity      :  3.88 ±  0.24 :  4.17 ±  2.23
-WKNN           :  2.56 ±  0.31 :  3.21 ±  3.17
+Gaussian       :  2.24 ±  0.25 :  2.74 ±  2.51
+Gaussian KNN   :  2.18 ±  0.26 :  2.72 ±  2.51
+Gaussian MinMax:  2.18 ±  0.26 :  2.72 ±  2.52
+KNN            :  4.19 ±  0.32 :  4.65 ±  2.81
+Propagation    :  5.33 ±  0.29 :  5.63 ±  3.17
+Proximity      :  3.78 ±  0.23 :  4.05 ±   2.1
+WKNN           :  2.32 ±   0.3 :  2.99 ±  2.86
 
 
-Kalman:
 algorithm      :  filtered     :  non_filtered
-Gaussian       :  2.51 ±  0.27 :  2.58 ±  0.28
-Gaussian KNN   :  2.49 ±  0.22 :  2.51 ±  0.22
-Gaussian MinMax:  2.41 ±  0.21 :  2.47 ±  0.23
+Gaussian       :  2.24 ±  0.25 :  2.42 ±  0.28
+Gaussian KNN   :  2.18 ±  0.26 :  2.33 ±  0.25
+Gaussian MinMax:  2.18 ±  0.26 :  2.33 ±  0.25
 KNN            :  4.19 ±  0.32 :  4.01 ±  0.33
-Propagation    :  5.32 ±  0.29 :  5.31 ±  0.29
+Propagation    :  5.33 ±  0.29 :  5.31 ±  0.29
 Proximity      :  3.78 ±  0.23 :  3.88 ±  0.24
-WKNN           :   2.5 ±   0.3 :  2.56 ±  0.31
+WKNN           :  2.32 ±   0.3 :  2.56 ±  0.31
+
+
+algorithm      :  uniform     :  local
+Gaussian       :  2.24 ±  0.25 :  2.24 ±  0.26
+Gaussian KNN   :  2.18 ±  0.26 :   2.2 ±  0.26
+Gaussian MinMax:  2.18 ±  0.26 :  2.25 ±  0.26
+KNN            :  4.19 ±  0.32 :  4.19 ±  0.34
+Propagation    :  5.33 ±  0.29 :  5.33 ±  0.29
+Proximity      :  3.78 ±  0.23 :  3.86 ±  0.24
+WKNN           :  2.32 ±   0.3 :  2.39 ±  0.29

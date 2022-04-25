@@ -116,13 +116,17 @@ def collect_and_write_timed_measurement(beacon_name, time, filepath):
     fh.write_timed_measurement(filepath, readings)
 
 
-def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN):
+def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN,filter=False):
     """processes windowed training data"""
     processed_training_data = {}
     position_beacon_map = {}  # holds which beacons are used for each position
     hashed_position_map = {}
     for beacon, beacon_data in training_data.items():
         for window_data, position in beacon_data:
+            if filter:
+                f = KalmanFilter()
+                window_data = f.filter_list(np.array(window_data))
+
             if type is const.MeasurementProcess.MEAN:
                 rssi_values = [np.mean(window_data)]
             elif type is const.MeasurementProcess.ALL:

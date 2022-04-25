@@ -37,6 +37,8 @@ class KalmanFilter(BaseFilter):
         self.Q = Q
         self.R = R
 
+        np.random.seed(3) # to ensure constant results for evaluation
+
     def predict_and_update(self, new_observation):
         """
         Prediction and update in Kalman filter
@@ -48,7 +50,7 @@ class KalmanFilter(BaseFilter):
         new_mean: mean state prediction
         new_var: variance state prediction
         """
-
+    
         if self.previous_mean is None:
             self.previous_mean = ( 1/ self.C) * new_observation
             self.previous_var = (1/ self.C) * self.Q * (1/self.C)
