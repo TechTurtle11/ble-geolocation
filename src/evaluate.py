@@ -6,7 +6,7 @@ import numpy as np
 from localisation import run_convergence_localisation_on_file, run_localisation_on_file
 import Models.models as models
 import Utils.constants as const
-from plotting import plot_evaluation_metric, produce_average_localisation_distance_plot
+from plotting import cell_size_plot, comparison_plot, plot_evaluation_metric, produce_average_localisation_distance_plot
 
 
 def rmse(predictions):
@@ -141,7 +141,7 @@ def filter_all_models_plot(training_data_filepath,evaluation_data_filepath):
     print("algorithm      :  filtered     :  non_filtered")
     for i,algorithm in enumerate(filtered_results.keys()):
         print(f"{algorithm:15}: {filtered_results[algorithm][0]:5} ± {filtered_results[algorithm][1]:5} : {non_filtered_results[algorithm][0]:5} ± {non_filtered_results[algorithm][1]:5}")
-
+    comparison_plot(filtered_results,non_filtered_results,"filter")
 
 def prior_all_models_plot(training_data_filepath,evaluation_data_filepath):
     uniform_predictions = predict_all_models(training_data_filepath,evaluation_data_filepath,True,const.Prior.UNIFORM)
@@ -153,7 +153,7 @@ def prior_all_models_plot(training_data_filepath,evaluation_data_filepath):
     print("algorithm      :  uniform     :  local")
     for i,algorithm in enumerate(uniform_results.keys()):
         print(f"{algorithm:15}: {uniform_results[algorithm][0]:5} ± {uniform_results[algorithm][1]:5} : {local_results[algorithm][0]:5} ± {local_results[algorithm][1]:5}")
-
+    comparison_plot(local_results,uniform_results,"prior")
 
 def all_models_plot(training_data_filepath,evaluation_data_filepath):
 
@@ -178,11 +178,12 @@ def all_models_plot(training_data_filepath,evaluation_data_filepath):
 def cellsize_plot(training_data_filepath,evaluation_data_filepath):
 
     cell_sizes = (2** np.arange(0,6)) / 4
-    cell_sizes = np.arange(0.5,1.1,step=0.1)
-    gaussian_models = {size: models.GaussianMinMaxModel(training_data_filepath,prior=const.Prior.UNIFORM,cell_size=size,filter=True) for size in cell_sizes}
+    cell_sizes = np.arange(0.2,4,step=0.1)
+    gaussian_models = {size: models.GaussianProcessModel(training_data_filepath,prior=const.Prior.UNIFORM,cell_size=size,filter=True) for size in cell_sizes}
     gaussian_predictions = {name: run_localisation_on_file(evaluation_data_filepath,model,False) for name,model in gaussian_models.items()}
     gaussian_mae = mae_confidence_interval(gaussian_predictions)
-    plot_evaluation_metric(gaussian_mae,"mae,cell_size")
+    #plot_evaluation_metric(gaussian_mae,"mae,cell_size")
+    cell_size_plot(gaussian_mae)
 
 
 def main():

@@ -330,6 +330,90 @@ def produce_average_localisation_distance_plot(algorithm_predictions):
     plt.show()
 
 
+def cell_size_plot(predictions):
+    y_label = "Mean Average Error (m)"
+    x_label = "Cell Size (m)"
+    title = f"How Cell Size Affects Gaussian Model Performance"
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_title(title)
+
+
+    x = list(predictions.keys())
+    y = [p[0] for p in predictions.values()]
+    ci = [p[1] for p in predictions.values()]
+    ax.errorbar(x,y,yerr=ci)
+    plt.show()
+
+def comparison_plot(filtered,unfiltered,metric):
+    x_label = "Algorithm"
+
+    y_label = "Mean Average Error (m)"
+    title = f"{y_label} for Localisation Algorithms"
+
+
+    if metric == "filter":
+        applied = "Filtered"
+        unapplied = "Unfiltered"
+        title = f"Filter Comparison for Localisation Algorithms"
+    elif metric == "prior":
+        applied = "Local"
+        unapplied = "Uniform"
+        title = f"Prior Comparison for Localisation Algorithms"
+
+    fig, ax = plt.subplots()
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    ax.set_title(title)
+
+    bar_width = 0.3
+
+    ax.grid(which='major', color='#DDDDDD', linewidth=0.8, axis="y", zorder=0)
+    ax.grid(which='minor', color='#EEEEEE', linestyle=':',
+            linewidth=0.5, axis="y", zorder=0)
+    ax.minorticks_on()
+
+    plt.tick_params(
+        axis='x',          # changes apply to the x-axis
+        which='minor',      # both major and minor ticks are affected
+        bottom=False,      # ticks along the bottom edge are off
+        top=False,         # ticks along the top edge are off
+        labelbottom=True, # labels along the bottom edge are off
+        )  
+
+    xtick_locations = (2*bar_width+0.1) * np.arange(len(filtered.keys())) + bar_width/2
+    ax.set_xticks(xtick_locations)
+    ax.set_xticklabels(list(filtered.keys()),rotation="45",ha="right")
+
+    for i, algorithm in enumerate(filtered.keys()):
+        if i == 0:
+            fbar = ax.bar(bar_width*(i)*2+0.1*i, filtered[algorithm][0],
+                            yerr=filtered[algorithm][1], label=applied, width=bar_width, zorder=3,color="blue")
+            
+            ufbar = ax.bar(bar_width*(i*2+1)+0.1*i, unfiltered[algorithm][0],
+                            yerr=unfiltered[algorithm][1], label=unapplied, width=bar_width, zorder=3,color="green")
+        else:
+            fbar = ax.bar(bar_width*(i)*2+0.1*i, filtered[algorithm][0],
+                            yerr=filtered[algorithm][1], width=bar_width, zorder=3,color="blue")
+            
+            ufbar = ax.bar(bar_width*(i*2+1)+0.1*i, unfiltered[algorithm][0],
+                            yerr=unfiltered[algorithm][1], width=bar_width, zorder=3,color="green")
+
+
+        for i, rect in enumerate(fbar):
+            height = filtered[algorithm][1] + rect.get_height()
+            plt.text(rect.get_x() + rect.get_width() / 2.0, height,
+                        f'{filtered[algorithm][0]:.2f}', ha='center', va='bottom', zorder=4)
+        for i, rect in enumerate(ufbar):
+            height = unfiltered[algorithm][1] + rect.get_height()
+            plt.text(rect.get_x() + rect.get_width() / 2.0, height,
+                        f'{unfiltered[algorithm][0]:.2f}', ha='center', va='bottom', zorder=4)
+
+    ax.legend(loc="upper left")
+    plt.show()
+
 def plot_evaluation_metric(predictions, metric):
 
     x_label = "Algorithm"
