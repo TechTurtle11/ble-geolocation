@@ -51,6 +51,16 @@ def mae_confidence_interval(predictions):
 
     return mae_conf_results
 
+def std(predictions):
+    std_results = {}
+
+    samples = len(predictions)
+    for algorithm,predictions in predictions.items():
+        dist = [np.linalg.norm(actual - prediction) for actual, prediction in predictions]
+        std_results[algorithm] = np.round(np.std(dist),2)
+
+    return std_results
+
 def rmse_confidence_interval(predictions):
     """
     calculates 95% confidence interval
@@ -74,11 +84,11 @@ def initialise_localisation_model(model:const.Model,training_data_filepath,filte
 
 
     if model is const.Model.GAUSSIAN:
-        return models.GaussianProcessModel(training_data_filepath,prior=prior,cell_size=1,filter=filter)
+        return models.GaussianProcessModel(training_data_filepath,prior=prior,cell_size=0.25,filter=filter)
     elif model is const.Model.GAUSSIANKNN:
-        return models.GaussianKNNModel(training_data_filepath,prior=prior,cell_size=1,filter=filter)
+        return models.GaussianKNNModel(training_data_filepath,prior=prior,cell_size=0.25,filter=filter)
     elif model is const.Model.GAUSSIANMINMAX:
-        return models.GaussianMinMaxModel(training_data_filepath,prior=prior,cell_size=1,filter=filter)
+        return models.GaussianMinMaxModel(training_data_filepath,prior=prior,cell_size=0.25,filter=filter)
     elif model is const.Model.KNN:
         return models.KNN(training_data_filepath,)
     elif model is const.Model.WKNN:
@@ -156,6 +166,11 @@ def all_models_plot(training_data_filepath,evaluation_data_filepath):
     print("algorithm      :  mae         :  rmse ")
     for i,algorithm in enumerate(predictions.keys()):
         print(f"{algorithm:15}: {mae[algorithm][0]:5} ± {mae[algorithm][1]:5} : {rmse[algorithm][0]:5} ± {rmse[algorithm][1]:5}")
+
+    stds= std(predictions)
+    print("algorithm      :  mae std")
+    for i,algorithm in enumerate(predictions.keys()):
+        print(f"{algorithm:15}: {stds[algorithm]:5} ")
 
     plot_evaluation_metric(mae,"mae")
 
