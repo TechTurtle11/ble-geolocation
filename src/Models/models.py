@@ -1,7 +1,7 @@
-from abc import ABC
+import abc
 from itertools import chain
 from pathlib import Path
-from turtle import pos
+from typing import Callable
 
 import numpy as np
 from Models.beacon import create_beacons
@@ -14,17 +14,24 @@ import Utils.general_helper as gh
 import Utils.constants as const
 
 
-class BaseModel(ABC):
+class BaseModel(abc.ABC):
+    """
+    Abstract class for a model. All models are instances of, this implements general behaviour and methods
+    """
 
-    def predict_position(self, rssi_measurement):
+    @abc.abstractmethod
+    def predict_position(self, rssi_measurement: dict):
         pass
 
-    def predict_convergent_position(self, rssi_measurement, reset_map):
+    def predict_convergent_position(self, rssi_measurement: dict, reset_map: bool):
         return self.predict_position(rssi_measurement)
 
-    def weighted_centroid_localisation(self, points, values, function):
+    def weighted_centroid_localisation(self, points: list, values: list, func: Callable):
+        """
+        Implement weigthed centroid localisation, the weights are created by applying the function to each value in values.
+        """
 
-        weights = [function(value) for value in values]
+        weights = [func(value) for value in values]
 
         weights_sum = sum(weights)
 
@@ -33,12 +40,15 @@ class BaseModel(ABC):
             position += (weight/weights_sum) * point
         return position
 
-    def bounding_box(self, points, values, function):
+    def bounding_box(self, points: list, values: list, func: Callable):
+        """
+        Implements the bounding box localisation method, weights are created by applying the function to each value in values.
+        """
 
-        adjusted_values = np.array([function(value) for value in values])
+        weights = np.array([func(value) for value in values])
 
-        change = np.repeat(adjusted_values.reshape(
-            1, len(adjusted_values)), len(points[0]), axis=0).T
+        change = np.repeat(weights.reshape(
+            1, len(weights)), len(points[0]), axis=0).T
 
         x_add = points + change
         x_sub = points - change
@@ -60,11 +70,11 @@ class GaussianProcessModel(BaseModel):
     with the highest probabilty which passes the standard deviation test,
     """
 
-    def __init__(self, training_data_filepath: Path, prior, bottom_corner=None, shape=None, cell_size=1,filter=False):
+    def __init__(self, training_data_filepath: Path, prior: const.Prior, bottom_corner: list = None, shape: list = None, cell_size: int = 1, filter: bool = False):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         training_data = process_training_data(
-            training_data, type=const.MeasurementProcess.QUANTILE,filter=filter)
+            training_data, type=const.MeasurementProcess.QUANTILE, filter=filter)
         self.beacons = create_beacons(self.beacon_positions, training_data)
         if bottom_corner is None or shape is None:
             bottom_corner, shape = self.get_map_dimensions(
@@ -72,7 +82,7 @@ class GaussianProcessModel(BaseModel):
         self.area_map = Map(bottom_corner, shape, cell_size)
         self.prior = prior
 
-    def predict_position(self, rssi_measurement):
+    def predict_position(self, rssi_measurement: dict):
         """
         Predicts the position of the target device
         """
@@ -90,13 +100,13 @@ class GaussianProcessModel(BaseModel):
 
         return sorted_cells[0].center
 
-    def predict_convergent_position(self, rssi_measurement, reset_map):
+    def predict_convergent_position(self, rssi_measurement: dict, reset_map: bool):
         if reset_map:
             self.area_map.reset_map()
 
         return self.predict_position(rssi_measurement)
 
-    def get_map_dimensions(self, beacon_positions, training_data, cell_size):
+    def get_map_dimensions(self, beacon_positions: dict, training_data: dict, cell_size: float):
         """
         Obtains map dimensions from the training data
         """
@@ -125,7 +135,7 @@ class GaussianKNNModel(GaussianProcessModel):
     a weighted mean of there corresponding positions.
     """
 
-    def predict_position(self, rssi_measurement):
+    def predict_position(self, rssi_measurement: dict):
         """
         Predicts the position of the target device
         """
@@ -145,7 +155,7 @@ class GaussianKNNModel(GaussianProcessModel):
         first_k = sorted_cells[:k]
 
         position = self.weighted_centroid_localisation([cell.center for cell in first_k], [
-                                                       cell.probability for cell in first_k], lambda v: abs(v))
+                                                       cell.probability for cell in first_k], lambda v: 1/abs(v))
 
         return position
 
@@ -154,11 +164,10 @@ class GaussianMinMaxModel(GaussianProcessModel):
     """
     Implementation of gaussian model with k-nearest neighbours on the area map:
     This uses the gaussian process to produce the cell map then uses the 3 lowest cell
-    centers which pass the covariance condition have high probabilities and produces
-    a weighted mean of there corresponding positions.
+    centers which pass the covariance condition have high probabilities and then uses the bounding box method to 
     """
 
-    def predict_position(self, rssi_measurement):
+    def predict_position(self, rssi_measurement: dict):
         """
         Predicts the position of the target device
         """
@@ -174,11 +183,12 @@ class GaussianMinMaxModel(GaussianProcessModel):
             calculated_cells, key=lambda c: c.probability, reverse=False)
 
         self.area_map.previous_cell = sorted_cells[0]
+
         k = 3
         first_k = sorted_cells[:k]
 
         position = self.bounding_box([cell.center for cell in first_k], [
-                                     cell.probability for cell in first_k], lambda v: abs(v))
+                                     cell.probability for cell in first_k], lambda v: 1/abs(v))
 
         return position
 
@@ -186,18 +196,18 @@ class GaussianMinMaxModel(GaussianProcessModel):
 class WKNN(BaseModel):
     """
     Implementation of a weighted k-nearest neighbours model:
-    The kNN algorithm uses k = 3 and comapares the input measurement to all training data measurment, then
+    The kNN algorithm uses k = 3 and comapares the input measurement to all training data measurement, then
     uses the three closest (lowest root mean square error(RMSE)) measurements and produces
     a weighted mean of there corresponding positions.
     """
 
-    def __init__(self, training_data_filepath: Path,filter=False):
+    def __init__(self, training_data_filepath: Path, filter: bool = False):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         self.training_data = process_training_data(
-            training_data, type=const.MeasurementProcess.QUANTILE,filter=filter)
+            training_data, type=const.MeasurementProcess.QUANTILE, filter=filter)
 
-    def predict_position(self, rssi_measurement, k=3):
+    def predict_position(self, rssi_measurement: dict, k: int = 3):
         """
         Predicts the position of the target device
         """
@@ -237,7 +247,7 @@ class KNN(BaseModel):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
 
-    def predict_position(self, rssi_measurement, k=3):
+    def predict_position(self, rssi_measurement: dict, k: int = 3):
         """
         Predicts the position of the target device
         """
@@ -258,18 +268,18 @@ class PropagationModel(BaseModel):
     and co-locates the user with them.
     """
 
-    def __init__(self, training_data_filepath: Path, n,filter=False):
+    def __init__(self, training_data_filepath: Path, n: float, filter: bool = False):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         training_data = process_training_data(
-            training_data, type=const.MeasurementProcess.MEAN,filter=filter)
+            training_data, type=const.MeasurementProcess.MEAN, filter=filter)
 
         # get constant values closest to 1
         beacon_constants = {}
         for beacon, data in training_data.items():
             beacon_position = self.beacon_positions[beacon]
-            distances = np.linalg.norm(data[:, 1:]-beacon_position, axis=1) 
-            distances = distances[distances >=1]
+            distances = np.linalg.norm(data[:, 1:]-beacon_position, axis=1)
+            distances = distances[distances >= 1]
             closest_index = np.argmin(distances)
             beacon_constants[beacon] = (
                 data[closest_index, 0], distances[closest_index])
@@ -279,7 +289,7 @@ class PropagationModel(BaseModel):
             self.distance_functions[beacon] = lambda rssi: constants[1] * \
                 np.power((rssi-constants[0])/-10*n, 10)
 
-    def predict_position(self, rssi_measurement):
+    def predict_position(self, rssi_measurement: dict):
         """
         Predicts the position of the target device
         """
@@ -311,7 +321,7 @@ class ProximityModel(BaseModel):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
 
-    def predict_position(self, rssi_measurement):
+    def predict_position(self, rssi_measurement: dict):
         """
         Predicts the position of the target device
         """

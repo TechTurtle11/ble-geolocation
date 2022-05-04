@@ -1,14 +1,16 @@
-from abc import ABC
 import numpy as np
+import abc
 
 
-class BaseFilter(ABC):
+class BaseFilter(abc.ABC):
 
+    @abc.abstractmethod
     def predict_and_update(self, new_observation):
         pass
 
     def filter_list(self, array):
-        i = 0
+        """Filters a list of values using the current filter"""
+
         filtered_values = [self.predict_and_update(
             observation) for observation in array]
 
@@ -19,7 +21,7 @@ class KalmanFilter(BaseFilter):
     def __init__(self, A=1, B=1,C=1, Q=4, R=0.008) -> None:
         """
 
-        Kalman Filter Implementation
+        First Order Kalman Filter Implementation
         Parameters:
         previous_mean: previous mean state
         previous_var : previous variance state

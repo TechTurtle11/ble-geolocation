@@ -13,7 +13,7 @@ from Utils.constants import MapAttribute
 from Models.map import Map
 
 
-def plot_beacon_map_rssi(beacon_name, beacon, starting_point, ending_point, offset=False):
+def plot_beacon_map_rssi(beacon_name, beacon, starting_point, ending_point):
     square_start = min(starting_point)
     square_end = max(ending_point)
 
@@ -21,7 +21,7 @@ def plot_beacon_map_rssi(beacon_name, beacon, starting_point, ending_point, offs
     y_samples = np.arange(square_start, square_end, 1)[::-1]
 
     predictions = np.array([np.array([beacon.predict_rssi(
-        [np.array([x, y])], offset=offset)[0] for x in x_samples]) for y in y_samples]).reshape((square_end, square_end))
+        [np.array([x, y])])[0] for x in x_samples]) for y in y_samples]).reshape((square_end, square_end))
 
     predictions = np.rint(predictions).astype(int)
 
@@ -120,8 +120,7 @@ def plot_rssi_distance(beacon, beacon_location, predict=False):
     rssi_values = data.T[0]
     distances = np.linalg.norm(data.T[1:].T - beacon_location, axis=1)
 
-    predicted_rssi_values = np.array(
-        [beacon.predict_offset_rssi(point) for point in data.T[1:].T])
+    predicted_rssi_values = beacon.predict_rssi(data.T[1:].T)
 
     plt.xlabel("Distance(m)")
     plt.ylabel("RSSI Value(dBm)")
@@ -224,7 +223,7 @@ def produce_beacon_map_plots(training_data_filepath, starting_point, ending_poin
     for address, beacon in beacons.items():
         plot_rssi_distance(beacon, beacon.position)
         plot_beacon_map_rssi(address, beacon, starting_point,
-                             ending_point, offset=False)
+                             ending_point)
         plot_beacon_map_covariance(
             address, beacon.get_map, starting_point, ending_point)
         plt.show()
@@ -482,7 +481,7 @@ def main():
     measurement_filepath = Path("data/experiment/test_measurement.csv")
     produce_measurement_plots(measurement_filepath, round=False)
     # input()
-    training_data_filepath = Path("data/training_outside.txt")
+    training_data_filepath = Path("data/training/outdoors_150.txt")
     starting_point = [0, 0]
     ending_point = [30, 30]
     produce_beacon_map_plots(training_data_filepath,

@@ -198,7 +198,7 @@ def write_evaluation_data_to_file(evaluation_data, filepath: Path, mode="w"):
 
         file.writelines(lines)
 
-def read_measurement_from_file(filepath):
+def read_measurement_from_file(filepath:Path):
     measurement = []
     with open(filepath, "r") as csv_file:
         for window in csv_file.readlines():
@@ -209,7 +209,7 @@ def read_measurement_from_file(filepath):
     return measurement
 
 
-def write_timed_measurement(filepath, readings):
+def write_timed_measurement(filepath:Path, readings):
     with open(filepath, "w+") as csv_file:
         csvWriter = csv.writer(csv_file, delimiter=',')
         csvWriter.writerows(readings)

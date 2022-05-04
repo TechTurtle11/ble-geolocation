@@ -4,8 +4,11 @@ from Utils.constants import Prior
 
 
 class Cell:
+    """
+    Represents a single cell in the Map() objects grid
+    """
 
-    def __init__(self, center, cell_length=1) -> None:
+    def __init__(self, center, cell_length:float=1) -> None:
         self._center = center
         self._cell_length = cell_length
         self._probability = 0
@@ -31,7 +34,7 @@ class Cell:
         return self._probability
 
     @probability.setter
-    def probability(self, prob):
+    def probability(self, prob:float):
         self._probability = prob
 
     @property
@@ -51,8 +54,10 @@ class Cell:
 
 class Map():
 
-    def __init__(self, bottom_corner, shape, cell_size=1) -> None:
+    def __init__(self, bottom_corner, shape, cell_size:float=1) -> None:
         """
+        The map encapsulates the grid of cells which are used in the gaussian process model. 
+
         Arguments:
         bottom_corner: n-dimensional array of the starting point ie [0,0] only supports 2/3 atm
         shape: n-dimensional array representing the total map space ie (30,30)
@@ -88,7 +93,7 @@ class Map():
                     self.cell_centers = np.append(
                         self.cell_centers, np.array([center]), axis=0)
 
-    def add_new_cells(self, new_cells):
+    def add_new_cells(self, new_cells:list):
         for cell in new_cells:
             self._cells.append(cell)
 
@@ -113,9 +118,12 @@ class Map():
         self._previous_cell = cell
 
     def reset_map(self):
+        "Removes any prior, is used when a new target device is to be calculated"
         self._previous_cell = None
 
-    def calculate_cell_probabilities(self, measurements, beacons, prior=Prior.UNIFORM):
+    def calculate_cell_probabilities(self, measurements:dict, beacons:dict, prior:Prior=Prior.UNIFORM):
+        """Calculates the new probabilities for all the cells """
+
         standard_deviation = 2
 
         distance_sum = np.zeros(len(self.cell_centers))
@@ -129,12 +137,15 @@ class Map():
             std_sum += std_predictions
 
         distances = np.sqrt(distance_sum / len(beacons_used))
-        log_p = np.exp2(distances) / (2 * np.exp2(standard_deviation))
+        nlog_p = np.exp2(distances) / (2 * np.exp2(standard_deviation)) #negative log p is calculated to avoid reverse sorting later
 
+
+
+        #updates cell information if it passes the prior condition
         for i, cell in enumerate(self._cells):
             prior_condition = (prior is Prior.LOCAL and self.previous_cell is not None and self.previous_cell.isNeighbor(
                 cell)) or random.randint(0,9) < 2 or prior is Prior.UNIFORM or self.previous_cell is None
-            cell.probability = log_p[i] if prior_condition else 1*10**9
+            cell.probability = nlog_p[i] if prior_condition else 1*10**9
             cell.std = std_sum[i]
 
         return self._cells
