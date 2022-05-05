@@ -1,52 +1,17 @@
+import argparse
 import logging
 from pathlib import Path
-import cProfile
-
-import numpy as np
 
 import Utils.file_helper as fh
-from Processing.filtering import BaseFilter, BasicFilter, KalmanFilter, MovingMeanFilter, MovingMedianFilter
+from Processing.filtering import KalmanFilter
 import Utils.general_helper as gh
-from Models.beacon import create_beacons
-from Utils.constants import MapAttribute, Prior
-from Models.map import Map
-from measurement import get_live_measurement, process_evaluation_data, process_training_data
-from plotting import plot_map_attribute, produce_average_localisation_distance_plot, produce_localisation_distance_plot
+from Utils.constants import Prior
+from measurement import get_live_measurement, process_evaluation_data
+import Models.models as models
+
 
 logging.basicConfig(filename='logs/localisation.log', level=logging.ERROR)
 
-
-def calculate_cell_probabilities(measurements, beacons, area_map, previous_cell=None, prior=Prior.UNIFORM):
-    standard_deviation = 2
-
-    cells = area_map.get_cells
-    for cell in cells:
-        cell.probability = cell.calculate_probabilty(
-            measurements, beacons, previous_cell, prior, standard_deviation)
-        logging.debug(f"{cell.center} {cell.probability}")
-
-    return cells
-
-
-def run_iteration(beacons, area_map, previous_measurement=None, previous_cell=None, prior=Prior.UNIFORM):
-    current_measurement = get_live_measurement(previous_measurement)
-
-    rssi_measurement = {beacon: reading[0]
-                        for beacon, reading in current_measurement.items()}
-
-    print(f"rssi measurement is: {rssi_measurement}")
-    logging.debug(f"rssi measurement is: {rssi_measurement}")
-
-    cells = calculate_cell_probabilities(
-        rssi_measurement, beacons, area_map, previous_cell, prior)
-
-    sorted_cells = sorted(cells, key=lambda c: c.probability, reverse=False)
-    for i, cell in enumerate(sorted_cells[:3]):
-        print(f"{i}. {cell}")
-    logging.debug(f"Most likely cell: {sorted_cells[0]}")
-
-    plot_map_attribute(area_map,MapAttribute.PROB)
-    return sorted_cells[0], current_measurement
 
 
 def run_localisation_on_file(evaluation_data_filepath,model,filtering=True,filter = KalmanFilter):
@@ -81,7 +46,7 @@ def run_localisation_on_file(evaluation_data_filepath,model,filtering=True,filte
     return position_predictions
 
 
-def run_convergence_localisation_on_file(evaluation_data_filepath,model,filtering=True):
+def run_convergence_localisation_on_file(evaluation_data_filepath,model,filtering=True,filter=KalmanFilter):
         evaluation_data = fh.load_evaluation_data(evaluation_data_filepath)
         evaluation_data = process_evaluation_data(evaluation_data)
 
@@ -100,7 +65,7 @@ def run_convergence_localisation_on_file(evaluation_data_filepath,model,filterin
                 
                 for beacon,rssi_value in measurement.items():
                     if beacon not in filter_map.keys():
-                        filter_map[beacon] = MovingMeanFilter()
+                        filter_map[beacon] = filter()
                     else:
                         if filtering:
                             measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)
@@ -114,74 +79,53 @@ def run_convergence_localisation_on_file(evaluation_data_filepath,model,filterin
         return position_predictions
 
 
-def predict_positions(training_data_filepath, iterations, prior):
-    predicted_positions = {}
+def live_localisation(training_filepath:Path):
+    """Used for live localisation: Spits out position predictions continuously
 
-    training_data_filepath = Path(training_data_filepath)
-    beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
-    training_data = process_training_data(training_data)
+    Args:
+        training_filepath (Path): The training data for the model.
+    """
 
+    #standard gaussian is used for the model without a prior
+    model = models.GaussianProcessModel(training_filepath, prior=Prior.UNIFORM, cell_size=1, filter=True)
+
+
+    measurement = None
     while True:
-        x = input("Enter current x coordinate: ")
-        y = input("Enter current y coordinate: ")
-        position = np.array([float(x), float(y)])
+        measurement = get_live_measurement(measurement)
+        stripped_measurement = {beacon: reading[0]
+                        for beacon, reading in stripped_measurement.items()}
 
-        cells = run_localisation_iterations(
-            training_data,beacon_positions, iterations, prior)
+        position_prediction = model.predict_position(stripped_measurement)
+        print(f"Position Prediction: {position_prediction}")
+        logging.debug(position_prediction)
 
-        predicted_positions[gh.hash_2D_coordinate(
-            *position)] = [position, cells]
-
-        loop_continue = input(
-            "Type stop if you have finished collecting training data: ")
-        if "stop" in loop_continue.lower():
-            break
-
-    return beacon_positions, predicted_positions
+def adhoc_localisation(training_filepath):
+    """NOT DONE : load training data, translate training data based on predicted position, add to map"""
+    return None
 
 
-def predict_and_write_positions(training_data_filepath, write_filepath, prior):
-    iterations = 10
-    beacon_positions, pred = predict_positions(training_data_filepath, iterations, prior)
-    fh.write_position_prediction_to_file(pred,beacon_positions, write_filepath)
+def main():
+    print("Welcome to the localisation file")
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", help="Plotting Wanted")
+    parser.add_argument(
+        "file", help="The file with the training data in it.")
+    args = parser.parse_args()
 
-def run_localisation_iterations(training_data, beacon_locations, iterations, prior):
+    modes = ["live", "adhoc",]
+    if args.mode not in modes:
+        print("Mode should be in " + ",".join(modes))
+    else:
+        training_data = Path(args.parse)
 
-
-    beacons = create_beacons(beacon_locations, training_data)
-
-    starting_point = [-3, -3]
-    ending_point = [10, 17]
-
-    area_map = Map(starting_point, ending_point, cell_size=1)
-
-    selected_cells = []
-
-    previous_cell = None
-    previous_measurement = None
-    for _ in range(iterations):
-        previous_cell, previous_measurement = run_iteration(
-            beacons, area_map, previous_measurement, previous_cell, prior)
-        selected_cells.append(previous_cell)
-
-    return selected_cells
-
-
-def add_beacon_to_map(predicted_position, training_data_filepath):
-
-
-    #adhoc if statement
-    """load training dat, translate training data based on predicted position, add to map"""
+        if args.mode == "live":
+            live_localisation(training_data)
+        if args.mode == "adhoc":
+            adhoc_localisation(training_data)
 
 
 
-
-    self.beacon_positions, training_data = fh.load_training_data(training_data_filepath, windows=True)
-    training_data = process_training_data(training_data,type=const.MeasurementProcess.MEDIAN)
-    self.beacons = create_beacons(self.beacon_positions, training_data)
-
-
-
-
-
+if __name__ == "__main__":
+    main()

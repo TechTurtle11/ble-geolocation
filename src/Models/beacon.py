@@ -1,5 +1,4 @@
 import sklearn.gaussian_process as gp
-from sklearn.linear_model import LinearRegression
 
 
 class Beacon():

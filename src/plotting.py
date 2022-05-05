@@ -1,4 +1,5 @@
 from __future__ import annotations
+import argparse
 
 from itertools import chain
 from pathlib import Path
@@ -231,7 +232,7 @@ def produce_beacon_map_plots(training_data_filepath, starting_point, ending_poin
 
 def produce_rotation_plot():
     measurement_filepaths = {angle: Path(
-        f"data/test_rotation_{angle}_measurement.csv") for angle in [0, 90, 180, 270, ]}
+        f"data/experiment/test_rotation_{angle}_measurement.csv") for angle in [0, 90, 180, 270, ]}
     measurements = {angle: fh.read_measurement_from_file(
         filepath) for angle, filepath in measurement_filepaths.items()}
 
@@ -329,10 +330,15 @@ def produce_average_localisation_distance_plot(algorithm_predictions):
     plt.show()
 
 
-def cell_size_plot(predictions):
+def parameter_plot(predictions,parameter):
     y_label = "Mean Average Error (m)"
-    x_label = "Cell Size (m)"
-    title = f"How Cell Size Affects Gaussian Model Performance"
+
+    if parameter == "cell_size":
+        x_label = "Cell Size (m)"
+        title = f"How Cell Size Affects Gaussian Model Performance"
+    elif parameter == "k":
+        x_label = "K"
+        title = f"How K affects KNN Model Performance"
 
     fig, ax = plt.subplots()
     ax.set_xlabel(x_label)
@@ -345,6 +351,8 @@ def cell_size_plot(predictions):
     ci = [p[1] for p in predictions.values()]
     ax.errorbar(x,y,yerr=ci)
     plt.show()
+
+    
 
 def comparison_plot(filtered,unfiltered,metric):
     x_label = "Algorithm"
@@ -474,18 +482,30 @@ def plot_evaluation_metric(predictions, metric):
 
 
 def main():
-    # produce_position_prediction_plots(Path("data/predictions/test1.txt"))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", help="Plotting Wanted")
+    parser.add_argument(
+        "file", help="The file with the training data in it.")
+    args = parser.parse_args()
 
-    # produce_rotation_plot()
-    # input()
-    measurement_filepath = Path("data/experiment/test_measurement.csv")
-    produce_measurement_plots(measurement_filepath, round=False)
-    # input()
-    training_data_filepath = Path("data/training/outdoors_150.txt")
-    starting_point = [0, 0]
-    ending_point = [30, 30]
-    produce_beacon_map_plots(training_data_filepath,
-                             starting_point, ending_point)
+    modes = ["rotate", "measure", "beacon","position"]
+    if args.mode not in modes:
+        print("Mode should be in " + ",".join(modes))
+    else:
+        if args.mode == "rotate":
+            produce_rotation_plot()
+        if args.mode == "measure":
+            filepath = Path(args.file)
+            produce_measurement_plots(filepath)
+        elif args.mode == "beacon":
+            filepath = Path(args.file)
+            starting_point = [0, 0]
+            ending_point = [30, 30]
+            produce_beacon_map_plots(filepath,
+                                    starting_point, ending_point)
+        elif args.mode == "position":
+            filepath = Path(args.file)
+            produce_position_prediction_plots(filepath)
 
 
 if __name__ == "__main__":

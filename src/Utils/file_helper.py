@@ -1,8 +1,6 @@
 import csv
 from pathlib import Path
-
 import numpy as np
-
 import Utils.general_helper as gh
 from Models.map import Cell
 

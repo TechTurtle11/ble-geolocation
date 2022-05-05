@@ -6,7 +6,7 @@ import numpy as np
 from localisation import run_convergence_localisation_on_file, run_localisation_on_file
 import Models.models as models
 import Utils.constants as const
-from plotting import cell_size_plot, comparison_plot, plot_evaluation_metric, produce_average_localisation_distance_plot
+from plotting import parameter_plot, comparison_plot, plot_evaluation_metric, produce_average_localisation_distance_plot
 
 
 def rmse(predictions: dict):
@@ -184,16 +184,13 @@ def evaluation_metric_plot(training_data_filepath: Path, evaluation_data_filepat
 
     mae = mae_confidence_interval(predictions)
     rmse = rmse_confidence_interval(predictions)
+    stds = std(predictions)
 
-    print("algorithm      :  mae         :  rmse ")
+    print("algorithm        :  mae        :  std  :  rmse ")
     for i, algorithm in enumerate(predictions.keys()):
         print(
-            f"{algorithm:15}: {mae[algorithm][0]:5} ± {mae[algorithm][1]:5} : {rmse[algorithm][0]:5} ± {rmse[algorithm][1]:5}")
+            f"{algorithm:15}: {mae[algorithm][0]:5} ± {mae[algorithm][1]:5} : {stds[algorithm]:5} : {rmse[algorithm][0]:5} ± {rmse[algorithm][1]:5}")
 
-    stds = std(predictions)
-    print("algorithm      :  mae std")
-    for i, algorithm in enumerate(predictions.keys()):
-        print(f"{algorithm:15}: {stds[algorithm]:5} ")
 
     plot_evaluation_metric(mae, "mae")
     plot_evaluation_metric(rmse, "rmse")
@@ -211,7 +208,34 @@ def cellsize_plot(training_data_filepath: Path, evaluation_data_filepath: Path):
         evaluation_data_filepath, model, False) for name, model in gaussian_models.items()}
     gaussian_mae = mae_confidence_interval(gaussian_predictions)
     # plot_evaluation_metric(gaussian_mae,"mae,cell_size")
-    cell_size_plot(gaussian_mae)
+
+
+    print("cell_size     :  mae    ")
+    for i, cell_size in enumerate(gaussian_predictions.keys()):
+        print(
+            f"{round(cell_size,2):15}: {gaussian_mae[cell_size][0]:5} ± {gaussian_mae[cell_size][1]:5}")
+
+    parameter_plot(gaussian_mae,"cell_size")
+
+
+def wk_comparison(training_data_filepath: Path, evaluation_data_filepath: Path):
+
+
+
+    wknn_models = {k: models.WKNN(training_data_filepath, filter=True,k=k) for k in range(1,10)}
+    
+    predictions = {name: run_localisation_on_file(
+        evaluation_data_filepath, model, False) for name, model in wknn_models.items()}
+    mae = mae_confidence_interval(predictions)
+
+
+    print("K     :  mae    ")
+    for i, k in enumerate(predictions.keys()):
+        print(
+            f"{k:5}: {mae[k][0]:5} ± {mae[k][1]:5}")
+
+    parameter_plot(mae,"k")
+
 
 
 def main():
@@ -223,7 +247,7 @@ def main():
                         help="The file with the evaluation data in it.")
     args = parser.parse_args()
 
-    modes = ["eval", "all", "prior", "filter", "cell_size"]
+    modes = ["eval", "all", "prior", "filter", "cell_size","wk"]
     if args.mode not in modes:
         print("Mode should be in " + ",".join(modes))
 
@@ -242,6 +266,8 @@ def main():
             filter_all_models_plot(training_filepath, evaluation_filepath)
         elif args.mode == "cell_size":
             cellsize_plot(training_filepath, evaluation_filepath)
+        elif args.mode == "wk":
+            wk_comparison(training_filepath, evaluation_filepath)
 
 
 if __name__ == "__main__":

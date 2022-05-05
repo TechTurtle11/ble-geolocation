@@ -5,7 +5,6 @@ from typing import Callable
 
 import numpy as np
 from Models.beacon import create_beacons
-from localisation import predict_positions
 from Models.map import Map
 
 from measurement import process_training_data
@@ -201,13 +200,14 @@ class WKNN(BaseModel):
     a weighted mean of there corresponding positions.
     """
 
-    def __init__(self, training_data_filepath: Path, filter: bool = False):
+    def __init__(self, training_data_filepath: Path, filter: bool = False,k: int = 3):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         self.training_data = process_training_data(
             training_data, type=const.MeasurementProcess.QUANTILE, filter=filter)
+        self.k = k
 
-    def predict_position(self, rssi_measurement: dict, k: int = 3):
+    def predict_position(self, rssi_measurement: dict, ):
         """
         Predicts the position of the target device
         """
@@ -228,7 +228,7 @@ class WKNN(BaseModel):
             distances[h][1] = np.sqrt(data[1]/distances[h][2])
 
         sorted_points = sorted(list(distances.values()), key=lambda p: p[1])
-        first_k = np.array(sorted_points[:k])
+        first_k = np.array(sorted_points[:self.k])
 
         position = self.weighted_centroid_localisation([point for point, _, _ in first_k], [
                                                        distance for _, distance, _ in first_k], lambda v: 1/v if v != 0 else 1*10**10)
@@ -243,17 +243,18 @@ class KNN(BaseModel):
     a weighted mean of the corresponding beacon positions.
     """
 
-    def __init__(self, training_data_filepath: Path):
+    def __init__(self, training_data_filepath: Path, k:int=3):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
+        self.k = k
 
-    def predict_position(self, rssi_measurement: dict, k: int = 3):
+    def predict_position(self, rssi_measurement: dict):
         """
         Predicts the position of the target device
         """
         sorted_points = sorted(
             list(rssi_measurement.items()), key=lambda p: p[1], reverse=True)
-        first_k = sorted_points[:k]
+        first_k = sorted_points[:self.k]
 
         position = self.weighted_centroid_localisation([self.beacon_positions[beacon] for beacon, _ in first_k], [
                                                        rssi for _, rssi in first_k], lambda v: abs(1/v) if v != 0 else 1*10**10)
