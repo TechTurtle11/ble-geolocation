@@ -194,6 +194,10 @@ def produce_measurement_plots(measurement_filepath, round=False):
 
     flattened_readings = np.array(list(chain.from_iterable(measurement)))
 
+    print(f"flatstd {np.std(median_measurement)}")
+    print(f"mean{np.mean(median_measurement)}")
+    print(f"median {np.median(median_measurement)}")
+
 
     plot_rssi_readings_over_time(
         {"mean": mean_measurement, "median": median_measurement}, "Raw RSSI values over time")

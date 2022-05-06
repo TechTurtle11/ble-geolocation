@@ -124,7 +124,7 @@ class Map():
     def calculate_cell_probabilities(self, measurements:dict, beacons:dict, prior:Prior=Prior.UNIFORM):
         """Calculates the new probabilities for all the cells """
 
-        standard_deviation = 2.3
+        standard_deviation = 3.2
 
         distance_sum = np.zeros(len(self.cell_centers))
         std_sum = np.zeros(len(self.cell_centers))

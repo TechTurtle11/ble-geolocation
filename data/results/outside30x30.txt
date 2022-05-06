@@ -1,11 +1,21 @@
-algorithm      :  mae         :  rmse 
-Gaussian       :  7.19 ±  0.83 :  9.34 ± 21.15
-Gaussian KNN   :  7.14 ±  0.63 :  8.48 ± 12.23
-Gaussian MinMax:  6.24 ±  0.74 :  8.19 ± 14.97
-KNN            :  6.94 ±  0.49 :   7.8 ±  7.97
-Propagation    :  8.56 ±  0.51 :  9.31 ±  9.27
-Proximity      :  8.45 ±  0.53 :  9.27 ±  9.59
-WKNN           : 18.89 ±   1.4 : 21.41 ± 54.29
+algorithm        :  mae        :  std  :  rmse 
+Gaussian       :  8.34 ±  0.85 :  6.11 : 10.33 ± 21.45
+Gaussian KNN   :  6.97 ±  0.75 :  5.43 :  8.84 ± 16.76
+Gaussian MinMax:  6.81 ±   0.7 :  5.03 :  8.46 ± 14.39
+KNN            :  7.03 ±  0.48 :  3.47 :  7.84 ±  7.92
+Propagation    :  8.73 ±  0.52 :  3.74 :  9.49 ±  9.41
+Proximity      :  8.28 ±  0.51 :  3.68 :  9.06 ±  9.07
+WKNN           : 18.99 ±   1.4 : 10.09 : 21.51 ± 55.63
+
+middle beacon removed
+algorithm        :  mae        :  std  :  rmse 
+Gaussian       :  8.74 ±  0.89 :  6.44 : 10.86 ± 23.12
+Gaussian KNN   :  7.22 ±  0.64 :  4.62 :  8.57 ±  12.4
+Gaussian MinMax:  7.38 ±  0.63 :  4.54 :  8.66 ± 11.89
+KNN            :  7.46 ±  0.57 :  4.13 :  8.53 ± 10.79
+Propagation    :  9.26 ±  0.61 :  4.42 : 10.26 ± 12.75
+Proximity      :  9.12 ±  0.56 :  4.05 :  9.98 ± 11.94
+WKNN           : 20.95 ±  1.34 :  9.67 : 23.07 ± 54.32
 
 
 algorithm      :  filtered     :  non_filtered

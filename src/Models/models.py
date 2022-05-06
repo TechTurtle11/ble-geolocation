@@ -252,6 +252,9 @@ class KNN(BaseModel):
         """
         Predicts the position of the target device
         """
+
+        rssi_measurement = {address: value for address,value in rssi_measurement.items() if address in self.beacon_positions.keys()}
+
         sorted_points = sorted(
             list(rssi_measurement.items()), key=lambda p: p[1], reverse=True)
         first_k = sorted_points[:self.k]
@@ -264,8 +267,8 @@ class KNN(BaseModel):
 
 class PropagationModel(BaseModel):
     """
-    Implementation of a propogation model:
-    The propogation model, uses a linear path loss model to predict distances from beacons
+    Implementation of a propagation model:
+    The propagation model, uses a linear path loss model to predict distances from beacons
     and co-locates the user with them.
     """
 
@@ -297,6 +300,10 @@ class PropagationModel(BaseModel):
 
         distance_sum = 1*10**-6
         beacon_distances = {}
+
+        rssi_measurement = {address: value for address,value in rssi_measurement.items() if address in self.beacon_positions.keys()}
+
+
         for beacon, measurement in rssi_measurement.items():
             distance = self.distance_functions[beacon](measurement)
             distance_sum += distance
@@ -326,6 +333,8 @@ class ProximityModel(BaseModel):
         """
         Predicts the position of the target device
         """
+        rssi_measurement = {address: value for address,value in rssi_measurement.items() if address in self.beacon_positions.keys()}
+
 
         max_beacon = max(rssi_measurement, key=rssi_measurement.get)
         return self.beacon_positions[max_beacon]
