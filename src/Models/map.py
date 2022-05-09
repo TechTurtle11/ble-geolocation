@@ -63,7 +63,7 @@ class Map():
         shape: n-dimensional array representing the total map space ie (30,30)
         cell_size: the size of each cell 
         """
-
+        random.seed(1)
         if len(bottom_corner) != len(shape):
             raise ValueError(
                 f"Dimension mismatch: len(bottom_corner) ({len(bottom_corner)}) != len(shape) ({len(shape)})")
@@ -140,7 +140,7 @@ class Map():
         nlog_p = np.exp2(distances) / (2 * np.exp2(standard_deviation)) #negative log p is calculated to avoid reverse sorting later
 
 
-
+        
         #updates cell information if it passes the prior condition
         for i, cell in enumerate(self._cells):
             prior_condition = (prior is Prior.LOCAL and self.previous_cell is not None and self.previous_cell.isNeighbor(

@@ -5,6 +5,7 @@ from itertools import chain
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+
 import numpy as np
 import Utils.file_helper as fh
 from Processing.filtering import BasicFilter, KalmanFilter, MovingMeanFilter, MovingMedianFilter
@@ -375,9 +376,9 @@ def comparison_plot(filtered,unfiltered,metric):
         title = f"Prior Comparison for Localisation Algorithms"
 
     fig, ax = plt.subplots()
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
-    ax.set_title(title)
+    ax.set_xlabel(x_label,fontsize=12)
+    ax.set_ylabel(y_label,fontsize=12)
+    ax.set_title(title,fontsize = 14)
 
     bar_width = 0.3
 
@@ -396,7 +397,7 @@ def comparison_plot(filtered,unfiltered,metric):
 
     xtick_locations = (2*bar_width+0.1) * np.arange(len(filtered.keys())) + bar_width/2
     ax.set_xticks(xtick_locations)
-    ax.set_xticklabels(list(filtered.keys()),rotation="45",ha="right")
+    ax.set_xticklabels(list(filtered.keys()),rotation="30",ha="right")
 
     for i, algorithm in enumerate(filtered.keys()):
         if i == 0:
@@ -440,9 +441,9 @@ def plot_evaluation_metric(predictions, metric):
         title = f"How Cell Size Affects Gaussian Model Performance"
 
     fig, ax = plt.subplots()
-    ax.set_xlabel(x_label)
-    ax.set_ylabel(y_label)
-    ax.set_title(title)
+    ax.set_xlabel(x_label,fontsize=12)
+    ax.set_ylabel(y_label,fontsize=12)
+    ax.set_title(title,fontsize = 14)
 
     bar_width = 0.3
 
@@ -461,7 +462,7 @@ def plot_evaluation_metric(predictions, metric):
 
     xtick_locations = bar_width * np.arange(len(predictions.keys()))
     ax.set_xticks(xtick_locations)
-    ax.set_xticklabels(list(predictions.keys()),rotation="45",ha="right")
+    ax.set_xticklabels(list(predictions.keys()),rotation="30",ha="right")
 
     for i, algorithm in enumerate(predictions.keys()):
         if len(list(predictions.values())[0]) > 1:
