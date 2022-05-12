@@ -1,12 +1,11 @@
 import argparse
 from pathlib import Path
-from statistics import mode
 import numpy as np
 
 from localisation import run_convergence_localisation_on_file, run_localisation_on_file
 import Models.models as models
 import Utils.constants as const
-from plotting import parameter_plot, comparison_plot, plot_evaluation_metric, produce_average_localisation_distance_plot
+from plotting import parameter_plot, comparison_plot, plot_evaluation_metric
 
 
 def rmse(predictions: dict):
