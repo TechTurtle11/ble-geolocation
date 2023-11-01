@@ -11,7 +11,9 @@ from processing.filtering import KalmanFilter
 import utils.general_helper as gh
 import argparse
 
-logging.basicConfig(filename='logs/measurement.log', level=logging.DEBUG)
+log_file = Path("logs/measurement.log")
+log_file.parent.mkdir(exist_ok=True)
+logging.basicConfig(filename=log_file, level=logging.DEBUG)
 
 
 class ScanDelegate(DefaultDelegate):

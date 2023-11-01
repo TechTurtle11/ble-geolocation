@@ -5,7 +5,7 @@ import utils.general_helper as gh
 from paradigms.map import Cell
 
 
-def write_cells_to_file(cells, filepath):
+def write_cells_to_file(cells: list[Cell], filepath: Path):
     lines = [
         f"{cell.center},{cell.probability},{cell.covariance}\n" for cell in cells]
     with open(filepath, "w") as file:

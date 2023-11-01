@@ -1,7 +1,7 @@
 FROM almalinux:9
 
 
-RUN dnf install -y cargo python3 python3-pip bluez glib2-devel
+RUN dnf install -y cargo python3 python3-pip bluez glib2-devel python3-tkinter
 
 
 COPY requirements.txt .
