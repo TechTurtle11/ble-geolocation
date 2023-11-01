@@ -18,7 +18,7 @@ class BaseFilter(abc.ABC):
 
 
 class KalmanFilter(BaseFilter):
-    def __init__(self, A=1, B=1,C=1, Q=4, R=0.008) -> None:
+    def __init__(self, A=1, B=1, C=1, Q=4, R=0.008) -> None:
         """
 
         First Order Kalman Filter Implementation
@@ -39,7 +39,7 @@ class KalmanFilter(BaseFilter):
         self.Q = Q
         self.R = R
 
-        np.random.seed(3) # to ensure constant results for evaluation
+        np.random.seed(3)  # to ensure constant results for evaluation
 
     def predict_and_update(self, new_observation):
         """
@@ -52,16 +52,16 @@ class KalmanFilter(BaseFilter):
         new_mean: mean state prediction
         new_var: variance state prediction
         """
-    
+
         if self.previous_mean is None:
-            self.previous_mean = ( 1/ self.C) * new_observation
-            self.previous_var = (1/ self.C) * self.Q * (1/self.C)
+            self.previous_mean = (1 / self.C) * new_observation
+            self.previous_var = (1 / self.C) * self.Q * (1 / self.C)
             return new_observation
         else:
             x_mean = self.A * self.previous_mean + self.B * np.random.normal(0, self.R, 1)
-            P_mean = (self.A * self.previous_var * self.A )+ self.R
+            P_mean = (self.A * self.previous_var * self.A) + self.R
 
-            #kalman gain
+            # kalman gain
             K = P_mean * self.C * (1 / ((self.C * P_mean * self.C) + self.Q))
 
             new_mean = x_mean + K * (new_observation - (self.C * x_mean))

@@ -67,7 +67,7 @@ def std(predictions: dict):
     return std_results
 
 
-def rmse_confidence_interval(predictions:dict):
+def rmse_confidence_interval(predictions: dict):
     """
     calculates 95% confidence interval
     """
@@ -86,27 +86,37 @@ def rmse_confidence_interval(predictions:dict):
     return mae_conf_results
 
 
-def initialise_localisation_model(model: const.Model, training_data_filepath: Path, filter: bool = False, prior: const.Prior = None):
+def initialise_localisation_model(
+        model: const.Model,
+        training_data_filepath: Path,
+        filter: bool = False,
+        prior: const.Prior = None):
 
     if model is const.Model.GAUSSIAN:
-        return models.GaussianProcessModel(training_data_filepath, prior=prior, cell_size=0.25, filter=filter)
+        return models.GaussianProcessModel(
+            training_data_filepath, prior=prior, cell_size=0.25, filter=filter)
     elif model is const.Model.GAUSSIANKNN:
-        return models.GaussianKNNModel(training_data_filepath, prior=prior, cell_size=0.25, filter=filter)
+        return models.GaussianKNNModel(
+            training_data_filepath, prior=prior, cell_size=0.25, filter=filter)
     elif model is const.Model.GAUSSIANMINMAX:
-        return models.GaussianMinMaxModel(training_data_filepath, prior=prior, cell_size=0.25, filter=filter)
+        return models.GaussianMinMaxModel(
+            training_data_filepath, prior=prior, cell_size=0.25, filter=filter)
     elif model is const.Model.KNN:
         return models.KNN(training_data_filepath,)
     elif model is const.Model.WKNN:
         return models.WKNN(training_data_filepath, filter=filter)
     elif model is const.Model.PROPOGATION:
-        return models.PropagationModel(training_data_filepath, const.PROPAGATION_CONSTANT, filter=filter)
+        return models.PropagationModel(
+            training_data_filepath, const.PROPAGATION_CONSTANT, filter=filter)
     elif model is const.Model.PROXIMITY:
         return models.ProximityModel(training_data_filepath)
     else:
         raise ValueError("Not a supported model")
 
 
-def get_localisation_predictions(models: list, training_data_filepath: Path, evaluation_data_filepath: Path,filtering:bool, prior: const.Prior):
+def get_localisation_predictions(
+        models: list, training_data_filepath: Path, evaluation_data_filepath: Path, filtering: bool,
+        prior: const.Prior):
 
     models = {model.value: initialise_localisation_model(
         model, training_data_filepath, filtering, prior) for model in models}
@@ -123,7 +133,8 @@ def get_localisation_predictions(models: list, training_data_filepath: Path, eva
     return predictions
 
 
-def run_filter_comparison(models: list, training_data_filepath: Path, evaluation_data_filepath: Path, prior: const.Prior):
+def run_filter_comparison(models: list, training_data_filepath: Path,
+                          evaluation_data_filepath: Path, prior: const.Prior):
 
     filtered = get_localisation_predictions(
         models, training_data_filepath, evaluation_data_filepath, True, prior)
@@ -133,11 +144,14 @@ def run_filter_comparison(models: list, training_data_filepath: Path, evaluation
     return {"Filtered": filtered, "Non-Filtered": non_filtered}
 
 
-def predict_all_models(training_data_filepath: Path, evaluation_data_filepath: Path, prior: const.Prior, filtering: bool):
+def predict_all_models(
+        training_data_filepath: Path, evaluation_data_filepath: Path, prior: const.Prior,
+        filtering: bool):
     """Gets position predictions for all the evaluation data
     """
     models = [model for model in const.Model]
-    return get_localisation_predictions(models, training_data_filepath, evaluation_data_filepath, prior, filtering)
+    return get_localisation_predictions(
+        models, training_data_filepath, evaluation_data_filepath, prior, filtering)
 
 
 def filter_all_models_plot(training_data_filepath: Path, evaluation_data_filepath: Path):
@@ -190,7 +204,6 @@ def evaluation_metric_plot(training_data_filepath: Path, evaluation_data_filepat
         print(
             f"{algorithm:15}: {mae[algorithm][0]:5} ± {mae[algorithm][1]:5} : {stds[algorithm]:5} : {rmse[algorithm][0]:5} ± {rmse[algorithm][1]:5}")
 
-
     plot_evaluation_metric(mae, "mae")
     plot_evaluation_metric(rmse, "rmse")
 
@@ -201,40 +214,37 @@ def cellsize_plot(training_data_filepath: Path, evaluation_data_filepath: Path):
 
     cell_sizes = (2 ** np.arange(0, 6)) / 4
     cell_sizes = np.arange(0.2, 4, step=0.1)
-    gaussian_models = {size: models.GaussianProcessModel(
-        training_data_filepath, prior=const.Prior.UNIFORM, cell_size=size, filter=True) for size in cell_sizes}
+    gaussian_models = {
+        size: models.GaussianProcessModel(
+            training_data_filepath, prior=const.Prior.UNIFORM, cell_size=size, filter=True)
+        for size in cell_sizes}
     gaussian_predictions = {name: run_localisation_on_file(
         evaluation_data_filepath, model, False) for name, model in gaussian_models.items()}
     gaussian_mae = mae_confidence_interval(gaussian_predictions)
     # plot_evaluation_metric(gaussian_mae,"mae,cell_size")
-
 
     print("cell_size     :  mae    ")
     for i, cell_size in enumerate(gaussian_predictions.keys()):
         print(
             f"{round(cell_size,2):15}: {gaussian_mae[cell_size][0]:5} ± {gaussian_mae[cell_size][1]:5}")
 
-    parameter_plot(gaussian_mae,"cell_size")
+    parameter_plot(gaussian_mae, "cell_size")
 
 
 def wk_comparison(training_data_filepath: Path, evaluation_data_filepath: Path):
 
-
-
-    wknn_models = {k: models.WKNN(training_data_filepath, filter=True,k=k) for k in range(1,10)}
+    wknn_models = {k: models.WKNN(training_data_filepath, filter=True, k=k) for k in range(1, 10)}
 
     predictions = {name: run_localisation_on_file(
         evaluation_data_filepath, model, False) for name, model in wknn_models.items()}
     mae = mae_confidence_interval(predictions)
-
 
     print("K     :  mae    ")
     for i, k in enumerate(predictions.keys()):
         print(
             f"{k:5}: {mae[k][0]:5} ± {mae[k][1]:5}")
 
-    parameter_plot(mae,"k")
-
+    parameter_plot(mae, "k")
 
 
 def main():
@@ -246,7 +256,7 @@ def main():
                         help="The file with the evaluation data in it.")
     args = parser.parse_args()
 
-    modes = ["eval", "all", "prior", "filter", "cell_size","wk"]
+    modes = ["eval", "all", "prior", "filter", "cell_size", "wk"]
     if args.mode not in modes:
         print("Mode should be in " + ",".join(modes))
 

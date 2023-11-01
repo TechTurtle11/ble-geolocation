@@ -36,7 +36,7 @@ class BaseModel(abc.ABC):
 
         position = np.zeros(2)
         for point, weight in zip(points, weights):
-            position += (weight/weights_sum) * point
+            position += (weight / weights_sum) * point
         return position
 
     def bounding_box(self, points: list, values: list, func: Callable):
@@ -69,7 +69,9 @@ class GaussianProcessModel(BaseModel):
     with the highest probabilty which passes the standard deviation test,
     """
 
-    def __init__(self, training_data_filepath: Path, prior: const.Prior, bottom_corner: list = None, shape: list = None, cell_size: int = 1, filter: bool = False):
+    def __init__(
+            self, training_data_filepath: Path, prior: const.Prior, bottom_corner: list = None,
+            shape: list = None, cell_size: int = 1, filter: bool = False):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         training_data = process_training_data(
@@ -92,7 +94,7 @@ class GaussianProcessModel(BaseModel):
         stds = np.array([cell.std for cell in calculated_cells])
         std_median = np.median(stds)
         calculated_cells = np.array(
-            [cell for cell in calculated_cells if cell.std < std_median+np.std(stds)])
+            [cell for cell in calculated_cells if cell.std < std_median + np.std(stds)])
         sorted_cells = sorted(
             calculated_cells, key=lambda c: c.probability, reverse=False)
         self.area_map.previous_cell = sorted_cells[0]
@@ -121,7 +123,7 @@ class GaussianProcessModel(BaseModel):
         top_corner = np.array(
             [np.amax(positions[:, 0]), np.amax(positions[:, 1])])
 
-        shape = np.ceil((top_corner-bottom_corner) / cell_size)
+        shape = np.ceil((top_corner - bottom_corner) / cell_size)
 
         return bottom_corner, shape
 
@@ -145,7 +147,7 @@ class GaussianKNNModel(GaussianProcessModel):
         stds = np.array([cell.std for cell in calculated_cells])
         std_median = np.median(stds)
         calculated_cells = np.array(
-            [cell for cell in calculated_cells if cell.std < std_median+np.std(stds)])
+            [cell for cell in calculated_cells if cell.std < std_median + np.std(stds)])
         sorted_cells = sorted(
             calculated_cells, key=lambda c: c.probability, reverse=False)
 
@@ -153,8 +155,10 @@ class GaussianKNNModel(GaussianProcessModel):
         k = 3
         first_k = sorted_cells[:k]
 
-        position = self.weighted_centroid_localisation([cell.center for cell in first_k], [
-                                                       cell.probability for cell in first_k], lambda v: 1/abs(v))
+        position = self.weighted_centroid_localisation(
+            [cell.center for cell in first_k],
+            [cell.probability for cell in first_k],
+            lambda v: 1 / abs(v))
 
         return position
 
@@ -177,7 +181,7 @@ class GaussianMinMaxModel(GaussianProcessModel):
         stds = np.array([cell.std for cell in calculated_cells])
         std_median = np.median(stds)
         calculated_cells = np.array(
-            [cell for cell in calculated_cells if cell.std <= std_median+np.std(stds)])
+            [cell for cell in calculated_cells if cell.std <= std_median + np.std(stds)])
         sorted_cells = sorted(
             calculated_cells, key=lambda c: c.probability, reverse=False)
 
@@ -187,7 +191,7 @@ class GaussianMinMaxModel(GaussianProcessModel):
         first_k = sorted_cells[:k]
 
         position = self.bounding_box([cell.center for cell in first_k], [
-                                     cell.probability for cell in first_k], lambda v: 1/abs(v))
+                                     cell.probability for cell in first_k], lambda v: 1 / abs(v))
 
         return position
 
@@ -200,7 +204,7 @@ class WKNN(BaseModel):
     a weighted mean of there corresponding positions.
     """
 
-    def __init__(self, training_data_filepath: Path, filter: bool = False,k: int = 3):
+    def __init__(self, training_data_filepath: Path, filter: bool = False, k: int = 3):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         self.training_data = process_training_data(
@@ -216,22 +220,24 @@ class WKNN(BaseModel):
 
             for line in data:
                 d_hash = gh.hash_2D_coordinate(*line[1:])
-                if not d_hash in distances.keys():
+                if d_hash not in distances.keys():
                     # (position,distance_scratch,beacons_used)
-                    distances[d_hash] = [np.array(line[1:]), 0, 1*10**-6]
+                    distances[d_hash] = [np.array(line[1:]), 0, 1 * 10**-6]
                 if beacon in rssi_measurement.keys():
                     distances[d_hash][1] += np.square(
                         line[0] - rssi_measurement[beacon])
                     distances[d_hash][2] += 1
 
         for h, data in distances.items():
-            distances[h][1] = np.sqrt(data[1]/distances[h][2])
+            distances[h][1] = np.sqrt(data[1] / distances[h][2])
 
         sorted_points = sorted(list(distances.values()), key=lambda p: p[1])
         first_k = np.array(sorted_points[:self.k])
 
-        position = self.weighted_centroid_localisation([point for point, _, _ in first_k], [
-                                                       distance for _, distance, _ in first_k], lambda v: 1/v if v != 0 else 1*10**10)
+        position = self.weighted_centroid_localisation(
+            [point for point, _, _ in first_k],
+            [distance for _, distance, _ in first_k],
+            lambda v: 1 / v if v != 0 else 1 * 10 ** 10)
 
         return position
 
@@ -243,7 +249,7 @@ class KNN(BaseModel):
     a weighted mean of the corresponding beacon positions.
     """
 
-    def __init__(self, training_data_filepath: Path, k:int=3):
+    def __init__(self, training_data_filepath: Path, k: int = 3):
         self.beacon_positions, training_data = fh.load_training_data(
             training_data_filepath, windows=True)
         self.k = k
@@ -253,14 +259,18 @@ class KNN(BaseModel):
         Predicts the position of the target device
         """
 
-        rssi_measurement = {address: value for address,value in rssi_measurement.items() if address in self.beacon_positions.keys()}
+        rssi_measurement = {
+            address: value for address, value in rssi_measurement.items()
+            if address in self.beacon_positions.keys()}
 
         sorted_points = sorted(
             list(rssi_measurement.items()), key=lambda p: p[1], reverse=True)
         first_k = sorted_points[:self.k]
 
-        position = self.weighted_centroid_localisation([self.beacon_positions[beacon] for beacon, _ in first_k], [
-                                                       rssi for _, rssi in first_k], lambda v: abs(1/v) if v != 0 else 1*10**10)
+        position = self.weighted_centroid_localisation(
+            [self.beacon_positions[beacon] for beacon, _ in first_k],
+            [rssi for _, rssi in first_k],
+            lambda v: abs(1 / v) if v != 0 else 1 * 10 ** 10)
 
         return position
 
@@ -282,7 +292,7 @@ class PropagationModel(BaseModel):
         beacon_constants = {}
         for beacon, data in training_data.items():
             beacon_position = self.beacon_positions[beacon]
-            distances = np.linalg.norm(data[:, 1:]-beacon_position, axis=1)
+            distances = np.linalg.norm(data[:, 1:] - beacon_position, axis=1)
             distances = distances[distances >= 1]
             closest_index = np.argmin(distances)
             beacon_constants[beacon] = (
@@ -291,18 +301,19 @@ class PropagationModel(BaseModel):
         self.distance_functions = {}
         for beacon, constants in beacon_constants.items():
             self.distance_functions[beacon] = lambda rssi: constants[1] * \
-                np.power((rssi-constants[0])/-10*n, 10)
+                np.power((rssi - constants[0]) / -10 * n, 10)
 
     def predict_position(self, rssi_measurement: dict):
         """
         Predicts the position of the target device
         """
 
-        distance_sum = 1*10**-6
+        distance_sum = 1 * 10**-6
         beacon_distances = {}
 
-        rssi_measurement = {address: value for address,value in rssi_measurement.items() if address in self.beacon_positions.keys()}
-
+        rssi_measurement = {
+            address: value for address, value in rssi_measurement.items()
+            if address in self.beacon_positions.keys()}
 
         for beacon, measurement in rssi_measurement.items():
             distance = self.distance_functions[beacon](measurement)
@@ -313,7 +324,7 @@ class PropagationModel(BaseModel):
             [self.beacon_positions[beacon] for beacon in beacon_distances.keys()])
 
         position = self.bounding_box(beacon_positions, np.array(
-            list(beacon_distances.values())), lambda v: abs(1/v))
+            list(beacon_distances.values())), lambda v: abs(1 / v))
 
         return position
 
@@ -333,8 +344,9 @@ class ProximityModel(BaseModel):
         """
         Predicts the position of the target device
         """
-        rssi_measurement = {address: value for address,value in rssi_measurement.items() if address in self.beacon_positions.keys()}
-
+        rssi_measurement = {
+            address: value for address, value in rssi_measurement.items()
+            if address in self.beacon_positions.keys()}
 
         max_beacon = max(rssi_measurement, key=rssi_measurement.get)
         return self.beacon_positions[max_beacon]

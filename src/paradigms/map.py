@@ -8,7 +8,7 @@ class Cell:
     Represents a single cell in the Map() objects grid
     """
 
-    def __init__(self, center, cell_length:float=1) -> None:
+    def __init__(self, center, cell_length: float = 1) -> None:
         self._center = center
         self._cell_length = cell_length
         self._probability = 0
@@ -34,7 +34,7 @@ class Cell:
         return self._probability
 
     @probability.setter
-    def probability(self, prob:float):
+    def probability(self, prob: float):
         self._probability = prob
 
     @property
@@ -54,7 +54,7 @@ class Cell:
 
 class Map():
 
-    def __init__(self, bottom_corner, shape, cell_size:float=1) -> None:
+    def __init__(self, bottom_corner, shape, cell_size: float = 1) -> None:
         """
         The map encapsulates the grid of cells which are used in the gaussian process model.
 
@@ -76,8 +76,8 @@ class Map():
         self._cell_size = cell_size
         self.cell_centers = np.empty((0, len(self._shape)))
 
-        starting_point = self._bottom_corner + cell_size/2
-        ending_point = self._bottom_corner + cell_size*self._shape
+        starting_point = self._bottom_corner + cell_size / 2
+        ending_point = self._bottom_corner + cell_size * self._shape
 
         for i in np.arange(starting_point[0], ending_point[0], step=self._cell_size):
             for j in np.arange(ending_point[1], starting_point[1], step=-self._cell_size):
@@ -93,7 +93,7 @@ class Map():
                     self.cell_centers = np.append(
                         self.cell_centers, np.array([center]), axis=0)
 
-    def add_new_cells(self, new_cells:list):
+    def add_new_cells(self, new_cells: list):
         for cell in new_cells:
             self._cells.append(cell)
 
@@ -114,14 +114,15 @@ class Map():
         return self._previous_cell
 
     @previous_cell.setter
-    def previous_cell(self, cell:Cell):
+    def previous_cell(self, cell: Cell):
         self._previous_cell = cell
 
     def reset_map(self):
         "Removes any prior, is used when a new target device is to be calculated"
         self._previous_cell = None
 
-    def calculate_cell_probabilities(self, measurements:dict, beacons:dict, prior:Prior=Prior.UNIFORM):
+    def calculate_cell_probabilities(self, measurements: dict,
+                                     beacons: dict, prior: Prior = Prior.UNIFORM):
         """Calculates the new probabilities for all the cells """
 
         standard_deviation = 3.2
@@ -137,15 +138,14 @@ class Map():
             std_sum += std_predictions
 
         distances = np.sqrt(distance_sum / len(beacons_used))
-        nlog_p = np.exp2(distances) / (2 * np.exp2(standard_deviation)) #negative log p is calculated to avoid reverse sorting later
+        # negative log p is calculated to avoid reverse sorting later
+        nlog_p = np.exp2(distances) / (2 * np.exp2(standard_deviation))
 
-
-
-        #updates cell information if it passes the prior condition
+        # updates cell information if it passes the prior condition
         for i, cell in enumerate(self._cells):
             prior_condition = (prior is Prior.LOCAL and self.previous_cell is not None and self.previous_cell.isNeighbor(
-                cell)) or random.randint(0,9) < 2 or prior is Prior.UNIFORM or self.previous_cell is None
-            cell.probability = nlog_p[i] if prior_condition else 1*10**9
+                cell)) or random.randint(0, 9) < 2 or prior is Prior.UNIFORM or self.previous_cell is None
+            cell.probability = nlog_p[i] if prior_condition else 1 * 10**9
             cell.std = std_sum[i]
 
         return self._cells

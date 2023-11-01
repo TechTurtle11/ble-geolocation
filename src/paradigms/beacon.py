@@ -6,7 +6,7 @@ class Beacon():
     Encapsulates a single beacon, including its beacon map (gaussian process) and predicting rssi values
     """
 
-    def __init__(self, address:str, position, training_data,) -> None:
+    def __init__(self, address: str, position, training_data,) -> None:
         self._mac_address = address
         self._training_data = training_data
         self._gpr = self.create_beacon_map(training_data)
@@ -21,22 +21,20 @@ class Beacon():
         X = training_data[:, 1:]
 
         kernel = gp.kernels.RBF(
-            length_scale=5, length_scale_bounds=(1*10**-5, 100))
+            length_scale=5, length_scale_bounds=(1 * 10**-5, 100))
 
-        #random state to ensure consistant results in testing
+        # random state to ensure consistant results in testing
         gpr = gp.GaussianProcessRegressor(
             kernel=kernel, random_state=0, normalize_y=False, n_restarts_optimizer=2).fit(X, Y)
-        
+
         return gpr
 
     def predict_rssi(self, points):
         """
         Predicts rssi values, and standard deviations for the beacon at the given points
         """
-        results = self._gpr.predict(points,return_std=True)
+        results = self._gpr.predict(points, return_std=True)
         return results[0], results[1]
-
-    
 
     @property
     def get_map(self):

@@ -15,7 +15,9 @@ def write_cells_to_file(cells, filepath):
 def write_position_prediction_to_file(predictions, beacon_positions, filepath):
     lines = []
 
-    beacon_position_line = ";".join([ f"{address}>{position[0]},{position[1]}" for address,position in beacon_positions.items()]) + "\n"
+    beacon_position_line = ";".join(
+        [f"{address}>{position[0]},{position[1]}" for address, position in
+         beacon_positions.items()]) + "\n"
     lines.append(beacon_position_line)
 
     for position, cells in predictions.values():
@@ -37,8 +39,9 @@ def read_position_prediction_from_file(filepath):
             if line_numb == 0:
                 beacon_position_strings = raw_line.split(";")
                 for beacon_position_string in beacon_position_strings:
-                    address,position_string = beacon_position_string.split(">")
-                    beacon_positions[address] = np.array([float(coord) for coord in position_string.split(",")])
+                    address, position_string = beacon_position_string.split(">")
+                    beacon_positions[address] = np.array(
+                        [float(coord) for coord in position_string.split(",")])
             else:
                 parts = raw_line.split(",")
 
@@ -51,7 +54,7 @@ def read_position_prediction_from_file(filepath):
                 cell.covariance = float(parts[3])
 
                 meas_pos_hash = gh.hash_2D_coordinate(*measured_position)
-                if not meas_pos_hash in predictions:
+                if meas_pos_hash not in predictions:
                     predictions[meas_pos_hash] = [measured_position, []]
 
                 predictions[meas_pos_hash][1].append(cell)
@@ -79,8 +82,9 @@ def load_training_data(filepath: Path, windows=False):
             if line_numb == 0:
                 beacon_position_strings = raw_line.split(";")
                 for beacon_position_string in beacon_position_strings:
-                    address,position_string = beacon_position_string.split(">")
-                    beacon_positions[address] = np.array([float(coord) for coord in position_string.split(",")])
+                    address, position_string = beacon_position_string.split(">")
+                    beacon_positions[address] = np.array(
+                        [float(coord) for coord in position_string.split(",")])
             else:
                 raw_position, measurements = raw_line.split("&")
 
@@ -91,15 +95,15 @@ def load_training_data(filepath: Path, windows=False):
                 rssi_strings = rssi_string.split(";")
                 if windows:
                     rssi_values = np.array([float(rssi) for rssi in rssi_strings])
-                    row = np.array([rssi_values, position],dtype=object)
-                    if not beacon in training_data.keys():
+                    row = np.array([rssi_values, position], dtype=object)
+                    if beacon not in training_data.keys():
                         training_data[beacon] = [row]
                     else:
                         training_data[beacon].append(row)
                 else:
                     for rssi in rssi_strings:
                         row = np.array([float(rssi), *position])
-                        if not beacon in training_data.keys():
+                        if beacon not in training_data.keys():
                             training_data[beacon] = np.array([row])
                         else:
                             training_data[beacon] = np.append(
@@ -134,7 +138,7 @@ def load_old_evaluation_data(filepath: Path):
 
             for rssi in rssi_strings:
                 row = np.array([float(rssi), *position])
-                if not beacon in training_data.keys():
+                if beacon not in training_data.keys():
                     training_data[beacon] = np.array([row])
                 else:
                     training_data[beacon] = np.append(
@@ -159,15 +163,19 @@ def load_evaluation_data(filepath: Path):
                 beacon, rssi_values = pair_string.split(",")
                 beacon_rssi_pairs[beacon] = [float(rssi) for rssi in rssi_values.split("|")]
 
-            evaluation_data.append([position,beacon_rssi_pairs])
+            evaluation_data.append([position, beacon_rssi_pairs])
 
     return evaluation_data
 
-def write_training_data_to_file(beacon_positions:dict ,training_data: dict, filepath: Path, mode="w"):
+
+def write_training_data_to_file(
+        beacon_positions: dict, training_data: dict, filepath: Path, mode="w"):
     with open(filepath, mode) as file:
         lines = []
 
-        beacon_position_line = ";".join([ f"{address}>{position[0]},{position[1]}" for address,position in beacon_positions.items()]) + "\n"
+        beacon_position_line = ";".join(
+            [f"{address}>{position[0]},{position[1]}" for address, position
+             in beacon_positions.items()]) + "\n"
         lines.append(beacon_position_line)
 
         for beacon, data in training_data.items():
@@ -179,24 +187,26 @@ def write_training_data_to_file(beacon_positions:dict ,training_data: dict, file
 
         file.writelines(lines)
 
+
 def write_evaluation_data_to_file(evaluation_data, filepath: Path, mode="w"):
     with open(filepath, mode) as file:
         lines = []
 
         for position, data in evaluation_data:
             beacon_rssi_strings = []
-            for beacon,rssi_values in data.items():
+            for beacon, rssi_values in data.items():
                 rssi_string = "|".join([str(rssi) for rssi in rssi_values])
                 beacon_rssi_strings.append(f"{beacon},{rssi_string}")
 
             beacon_rssi_string = ";".join(beacon_rssi_strings)
 
             lines.append(
-                    f"{position[0]},{position[1]}&{beacon_rssi_string}\n")
+                f"{position[0]},{position[1]}&{beacon_rssi_string}\n")
 
         file.writelines(lines)
 
-def read_measurement_from_file(filepath:Path):
+
+def read_measurement_from_file(filepath: Path):
     measurement = []
     with open(filepath, "r") as csv_file:
         for window in csv_file.readlines():
@@ -207,8 +217,7 @@ def read_measurement_from_file(filepath:Path):
     return measurement
 
 
-def write_timed_measurement(filepath:Path, readings):
+def write_timed_measurement(filepath: Path, readings):
     with open(filepath, "w+") as csv_file:
         csvWriter = csv.writer(csv_file, delimiter=',')
         csvWriter.writerows(readings)
-

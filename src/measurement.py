@@ -36,7 +36,8 @@ class ScanDelegate(DefaultDelegate):
             self.entries[dev.addr].append(dev.rssi)
 
 
-def get_live_measurement(previous_measurement=None, processing=True, measurement_process=const.MeasurementProcess.MEDIAN):
+def get_live_measurement(previous_measurement=None, processing=True,
+                         measurement_process=const.MeasurementProcess.MEDIAN):
     delegate = ScanDelegate()
     scanner = Scanner().withDelegate(delegate)
 
@@ -58,8 +59,12 @@ def get_live_measurement(previous_measurement=None, processing=True, measurement
                 f"This value {measurement_process} has not been implemented")
 
         if previous_measurement is None:
-            final_measurement = {address: (processing_function(readings), KalmanFilter(processing_function(readings))) for address,
-                                 readings in raw_measurement.items()}
+            final_measurement = {
+                address: (
+                    processing_function(readings),
+                    KalmanFilter(
+                        processing_function(readings))) for address,
+                readings in raw_measurement.items()}
 
         else:
             final_measurement = {}
@@ -116,7 +121,7 @@ def collect_and_write_timed_measurement(beacon_name, time, filepath):
     fh.write_timed_measurement(filepath, readings)
 
 
-def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN,filter=False):
+def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN, filter=False):
     """processes windowed training data"""
     processed_training_data = {}
     position_beacon_map = {}  # holds which beacons are used for each position
@@ -140,7 +145,7 @@ def process_training_data(training_data, type=const.MeasurementProcess.MEDIAN,fi
 
             for rssi in rssi_values:
                 row = np.array([float(rssi), *position])
-                if not beacon in processed_training_data.keys():
+                if beacon not in processed_training_data.keys():
                     processed_training_data[beacon] = np.array([row])
                 else:
                     processed_training_data[beacon] = np.append(
@@ -224,7 +229,7 @@ def collect_training_data():
 
         for beacon, rssi_values in measurement.items():
 
-            if not beacon in training_data.keys():
+            if beacon not in training_data.keys():
                 training_data[beacon] = []
 
             training_data[beacon].append([position, rssi_values])
