@@ -7,12 +7,12 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 import numpy as np
-import Utils.file_helper as fh
-from Processing.filtering import BasicFilter, KalmanFilter, MovingMeanFilter, MovingMedianFilter
+import utils.file_helper as fh
+from processing.filtering import BasicFilter, KalmanFilter, MovingMeanFilter, MovingMedianFilter
 import measurement as measure
-from Models.beacon import create_beacons
-from Utils.constants import MapAttribute
-from Models.map import Map
+from paradigms.beacon import create_beacons
+from utils.constants import MapAttribute
+from paradigms.map import Map
 
 
 def plot_beacon_map_rssi(beacon_name, beacon, starting_point, ending_point):
@@ -357,7 +357,7 @@ def parameter_plot(predictions,parameter):
     ax.errorbar(x,y,yerr=ci)
     plt.show()
 
-    
+
 
 def comparison_plot(filtered,unfiltered,metric):
     x_label = "Algorithm"
@@ -393,7 +393,7 @@ def comparison_plot(filtered,unfiltered,metric):
         bottom=False,      # ticks along the bottom edge are off
         top=False,         # ticks along the top edge are off
         labelbottom=True, # labels along the bottom edge are off
-        )  
+        )
 
     xtick_locations = (2*bar_width+0.1) * np.arange(len(filtered.keys())) + bar_width/2
     ax.set_xticks(xtick_locations)
@@ -403,13 +403,13 @@ def comparison_plot(filtered,unfiltered,metric):
         if i == 0:
             fbar = ax.bar(bar_width*(i)*2+0.1*i, filtered[algorithm][0],
                             yerr=filtered[algorithm][1], label=applied, width=bar_width, zorder=3,color="blue")
-            
+
             ufbar = ax.bar(bar_width*(i*2+1)+0.1*i, unfiltered[algorithm][0],
                             yerr=unfiltered[algorithm][1], label=unapplied, width=bar_width, zorder=3,color="green")
         else:
             fbar = ax.bar(bar_width*(i)*2+0.1*i, filtered[algorithm][0],
                             yerr=filtered[algorithm][1], width=bar_width, zorder=3,color="blue")
-            
+
             ufbar = ax.bar(bar_width*(i*2+1)+0.1*i, unfiltered[algorithm][0],
                             yerr=unfiltered[algorithm][1], width=bar_width, zorder=3,color="green")
 
@@ -458,7 +458,7 @@ def plot_evaluation_metric(predictions, metric):
         bottom=False,      # ticks along the bottom edge are off
         top=False,         # ticks along the top edge are off
         labelbottom=True, # labels along the bottom edge are off
-        )  
+        )
 
     xtick_locations = bar_width * np.arange(len(predictions.keys()))
     ax.set_xticks(xtick_locations)

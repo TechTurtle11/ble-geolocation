@@ -2,12 +2,12 @@ import argparse
 import logging
 from pathlib import Path
 
-import Utils.file_helper as fh
-from Processing.filtering import KalmanFilter
-import Utils.general_helper as gh
-from Utils.constants import Prior
+import utils.file_helper as fh
+from processing.filtering import KalmanFilter
+import utils.general_helper as gh
+from utils.constants import Prior
 from measurement import get_live_measurement, process_evaluation_data
-import Models.models as models
+import paradigms.models as models
 
 
 logging.basicConfig(filename='logs/localisation.log', level=logging.ERROR)
@@ -24,20 +24,20 @@ def run_localisation_on_file(evaluation_data_filepath,model,filtering=True,filte
 
     position_predictions = []
     for position,measurement in evaluation_data:
-            
+
             h = gh.hash_2D_coordinate(*position)
             if h in position_filter_map.keys():
                 filter_map = position_filter_map[h]
             else:
                 filter_map = {}
-            
+
             for beacon,rssi_value in measurement.items():
                 if beacon not in filter_map.keys():
                     filter_map[beacon] = filter()
 
                 if filtering:
                     measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)
-            position_filter_map[h] = filter_map         
+            position_filter_map[h] = filter_map
 
 
             predicted_position = model.predict_position(measurement)
@@ -54,7 +54,7 @@ def run_convergence_localisation_on_file(evaluation_data_filepath,model,filterin
         reset_map = False
         position_predictions = []
         for position,measurement in evaluation_data:
-                
+
                 h = gh.hash_2D_coordinate(*position)
                 if h in position_filter_map.keys():
                     filter_map = position_filter_map[h]
@@ -62,14 +62,14 @@ def run_convergence_localisation_on_file(evaluation_data_filepath,model,filterin
                 else:
                     filter_map = {}
                     reset_map = True
-                
+
                 for beacon,rssi_value in measurement.items():
                     if beacon not in filter_map.keys():
                         filter_map[beacon] = filter()
                     else:
                         if filtering:
                             measurement[beacon] = filter_map[beacon].predict_and_update(rssi_value)
-                position_filter_map[h] = filter_map         
+                position_filter_map[h] = filter_map
 
 
                 predicted_position = model.predict_convergent_position(measurement,reset_map)

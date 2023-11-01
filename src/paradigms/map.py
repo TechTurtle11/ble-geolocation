@@ -1,6 +1,6 @@
 import random
 import numpy as np
-from Utils.constants import Prior
+from utils.constants import Prior
 
 
 class Cell:
@@ -56,12 +56,12 @@ class Map():
 
     def __init__(self, bottom_corner, shape, cell_size:float=1) -> None:
         """
-        The map encapsulates the grid of cells which are used in the gaussian process model. 
+        The map encapsulates the grid of cells which are used in the gaussian process model.
 
         Arguments:
         bottom_corner: n-dimensional array of the starting point ie [0,0] only supports 2/3 atm
         shape: n-dimensional array representing the total map space ie (30,30)
-        cell_size: the size of each cell 
+        cell_size: the size of each cell
         """
         random.seed(1)
         if len(bottom_corner) != len(shape):
@@ -113,7 +113,7 @@ class Map():
     def previous_cell(self):
         return self._previous_cell
 
-    @previous_cell.setter 
+    @previous_cell.setter
     def previous_cell(self, cell:Cell):
         self._previous_cell = cell
 
@@ -140,7 +140,7 @@ class Map():
         nlog_p = np.exp2(distances) / (2 * np.exp2(standard_deviation)) #negative log p is calculated to avoid reverse sorting later
 
 
-        
+
         #updates cell information if it passes the prior condition
         for i, cell in enumerate(self._cells):
             prior_condition = (prior is Prior.LOCAL and self.previous_cell is not None and self.previous_cell.isNeighbor(

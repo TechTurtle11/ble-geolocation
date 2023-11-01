@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 
 from localisation import run_convergence_localisation_on_file, run_localisation_on_file
-import Models.models as models
-import Utils.constants as const
+import paradigms.models as models
+import utils.constants as const
 from plotting import parameter_plot, comparison_plot, plot_evaluation_metric
 
 
@@ -222,7 +222,7 @@ def wk_comparison(training_data_filepath: Path, evaluation_data_filepath: Path):
 
 
     wknn_models = {k: models.WKNN(training_data_filepath, filter=True,k=k) for k in range(1,10)}
-    
+
     predictions = {name: run_localisation_on_file(
         evaluation_data_filepath, model, False) for name, model in wknn_models.items()}
     mae = mae_confidence_interval(predictions)

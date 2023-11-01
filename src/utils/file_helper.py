@@ -1,8 +1,8 @@
 import csv
 from pathlib import Path
 import numpy as np
-import Utils.general_helper as gh
-from Models.map import Cell
+import utils.general_helper as gh
+from paradigms.map import Cell
 
 
 def write_cells_to_file(cells, filepath):
@@ -190,7 +190,7 @@ def write_evaluation_data_to_file(evaluation_data, filepath: Path, mode="w"):
                 beacon_rssi_strings.append(f"{beacon},{rssi_string}")
 
             beacon_rssi_string = ";".join(beacon_rssi_strings)
-        
+
             lines.append(
                     f"{position[0]},{position[1]}&{beacon_rssi_string}\n")
 

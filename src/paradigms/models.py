@@ -4,13 +4,13 @@ from pathlib import Path
 from typing import Callable
 
 import numpy as np
-from Models.beacon import create_beacons
-from Models.map import Map
+from paradigms.beacon import create_beacons
+from paradigms.map import Map
 
 from measurement import process_training_data
-import Utils.file_helper as fh
-import Utils.general_helper as gh
-import Utils.constants as const
+import utils.file_helper as fh
+import utils.general_helper as gh
+import utils.constants as const
 
 
 class BaseModel(abc.ABC):
@@ -163,7 +163,7 @@ class GaussianMinMaxModel(GaussianProcessModel):
     """
     Implementation of gaussian model with k-nearest neighbours on the area map:
     This uses the gaussian process to produce the cell map then uses the 3 lowest cell
-    centers which pass the covariance condition have high probabilities and then uses the bounding box method to 
+    centers which pass the covariance condition have high probabilities and then uses the bounding box method to
     """
 
     def predict_position(self, rssi_measurement: dict):
